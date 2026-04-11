@@ -186,12 +186,14 @@ For non-implementation prompt files (review, validation, integration), include t
    - The PR title must include the JIRA ticket.
    - The PR body should summarize what was implemented, organized by sub-task.
    - If there were unresolved gaps from Phase 6, include them in a `Known Gaps` section.
-5. Unless `--no-pr`, `--draft-pr`, or `SKIP_PR=true`, mark the PR ready and invoke `plan-executor:pr-finalize` with `--foreground`.
-   - Always pass `--foreground` so the monitor runs synchronously.
-   - If `--merge` is in effect, pass `--merge` to `plan-executor:pr-finalize`.
-   - If `--merge-admin` is in effect, pass `--merge-admin` to `plan-executor:pr-finalize`.
+5. Unless `--no-pr`, `--draft-pr`, or `SKIP_PR=true`, mark the PR ready and hand off PR finalization to the executor via a bash handoff.
+   - Locate `pr-monitor.sh` relative to this skill's plugin root: `${CLAUDE_PLUGIN_ROOT}/skills/pr-finalize/pr-monitor.sh`. Resolve the absolute path by reading the plugin cache directory from the current session (the same directory where this skill's SKILL.md was loaded from).
+   - Write a wrapper script at `<execution-root>/.tmp-subtask-pr-finalize.sh` that calls `pr-monitor.sh` with the correct arguments (owner, repo, PR number, HEAD SHA, push time, workdir, summary file, log file). The wrapper must also handle merge after the monitor exits when `--merge` or `--merge-admin` is in effect.
+   - Emit a single bash handoff: `call sub-agent 1 (agent-type: bash): <absolute-path-to-wrapper>`
+   - Persist state and stop so the executor runs the script.
+   - On resume, read the summary file from the wrapper output to determine success or failure.
    - This step is MANDATORY whenever the normal PR path is enabled. Do NOT skip it.
-   - Do NOT mark the plan `COMPLETED` or print the execution summary until `plan-executor:pr-finalize` has fully completed.
+   - Do NOT mark the plan `COMPLETED` or print the execution summary until the PR finalization handoff has completed.
 6. If final verification fails, emit cleanup-fix prompt files, update persisted state, print handoff lines, and stop.
 7. Mark the plan `COMPLETED` only after all required Phase 7 work succeeds, including `plan-executor:pr-finalize` when applicable.
 8. If Phase 7 completes without emitting another required handoff batch or hitting a deterministic stop condition, continue directly to Phase 8 in the SAME run. Cleanup and PR completion is not a checkpoint.

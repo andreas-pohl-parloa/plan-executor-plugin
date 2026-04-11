@@ -45,8 +45,8 @@ An optional `can-fail` flag may be appended to the metadata:
 
 Rules:
 - `<N>` is a 1-based index within the emitted batch.
-- `<type>` is one of `claude`, `codex`, `gemini`.
-- `<absolute-path>` is the absolute path to the prompt file.
+- `<type>` is one of `claude`, `codex`, `gemini`, `bash`.
+- `<absolute-path>` is the absolute path to the prompt file (or shell script for `bash` type).
 - `can-fail: true` marks the sub-agent as optional. If omitted, the agent is required.
 - A required agent that exits non-zero or violates the handoff protocol fails the job.
 - A can-fail agent that exits non-zero or violates the handoff protocol is skipped; the job continues without its output.
@@ -66,6 +66,7 @@ Naming patterns:
 - validation: `.tmp-subtask-plan-validation-attempt-<attempt>.md`
 - validation fixes: `.tmp-subtask-validation-fix-attempt-<attempt>-<N>.md`
 - cleanup fixes: `.tmp-subtask-cleanup-fix-attempt-<attempt>-<N>.md`
+- bash scripts: `.tmp-subtask-<purpose>.sh` (use `.sh` extension for `agent-type: bash`)
 
 ## 5. State file
 
