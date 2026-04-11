@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "plan-executor",
+  "version": "1.0.0",
+  "description": "Plan execution pipeline: orchestration, validation, review, and binary dependency management",
+  "owner": {
+    "name": "Andreas Pohl"
+  },
+  "plugins": [
+    {
+      "name": "plan-executor",
+      "description": "Plan execution pipeline: orchestration, validation, review, and binary dependency management",
+      "source": "./plugins/plan-executor",
+      "category": "workflow"
+    }
+  ]
+}

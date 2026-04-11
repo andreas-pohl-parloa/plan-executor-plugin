@@ -1,0 +1,7 @@
+{
+  "name": "plan-executor",
+  "description": "Plan execution pipeline: orchestration, validation, review, and binary dependency management",
+  "author": {
+    "name": "Andreas Pohl"
+  }
+}
