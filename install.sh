@@ -46,16 +46,17 @@ install_plugin() {
     require_claude
 
     # Always remove existing marketplace, plugin, and cache for a clean install
-    if plugin_installed; then
-        claude plugin uninstall "${PLUGIN_NAME}@${MARKETPLACE_NAME}" >/dev/null 2>&1 || true
-    fi
-    if marketplace_exists; then
-        claude plugin marketplace remove "${MARKETPLACE_NAME}" >/dev/null 2>&1 || true
-    fi
+    info "Removing old plugin data..."
+    claude plugin uninstall "${PLUGIN_NAME}@${MARKETPLACE_NAME}" >/dev/null 2>&1 || true
+    claude plugin marketplace remove "${MARKETPLACE_NAME}" >/dev/null 2>&1 || true
     clear_plugin_cache
+    ok "Clean."
+
+    info "Adding marketplace..."
+    claude plugin marketplace add "${source}" --scope user >/dev/null 2>&1
+    ok "Marketplace added."
 
     info "Installing plugin..."
-    claude plugin marketplace add "${source}" --scope user >/dev/null 2>&1
     claude plugin install "${PLUGIN_NAME}@${MARKETPLACE_NAME}" >/dev/null 2>&1
     ok "Plugin installed (${PLUGIN_NAME}@${MARKETPLACE_NAME})"
 }
