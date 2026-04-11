@@ -51,7 +51,7 @@ plan-executor:superpowers-plan-handover
    - **Plan-Executor Remote** submits the plan to be executed via GitHub Actions. The plan includes `add-marketplaces` and `add-plugins` headers so the remote runner installs the same plugin environment.
 
 > [!WARNING]
-> Remote execution requires one-time setup: run `plan-executor remote-setup` to configure `remote_repo` in `~/.plan-executor/config.json`.
+> Remote execution requires one-time setup — see [Remote Setup](#remote-setup) below.
 
 ## Skills
 
@@ -67,6 +67,58 @@ plan-executor:superpowers-plan-handover
 | `/plan-executor:superpowers-plan-handover` | Hand a Superpowers plan over into the execution flow |
 | `/plan-executor:validate-execution-plan` | Validate a plan against implementation output (interactive) |
 | `/plan-executor:validate-execution-plan-non-interactive` | Validate a plan with persisted state (non-interactive) |
+
+## Remote Setup
+
+Remote execution dispatches plans to GitHub Actions via a dedicated executions repository. One-time setup is required.
+
+### 1. Create an executions repository
+
+Create a private GitHub repository that will host the workflow runs (e.g. `your-org/plan-executions`). This repo only stores workflow definitions and job artifacts — no source code.
+
+### 2. Run the setup wizard
+
+```bash
+plan-executor remote-setup
+```
+
+The interactive wizard configures `~/.plan-executor/config.json` with:
+
+- **`remote_repo`** — the GitHub `owner/repo` slug of the executions repository (e.g. `andreas-pohl-parloa/plan-executions`)
+- **GitHub Actions secrets** — the wizard stores the required secrets (`ANTHROPIC_API_KEY`, etc.) in the executions repo so runners can authenticate
+
+### 3. Verify
+
+After setup, `~/.plan-executor/config.json` should contain a `remote_repo` entry:
+
+```json
+{
+  "remote_repo": "your-org/plan-executions"
+}
+```
+
+You can re-run `plan-executor remote-setup` at any time to update the configuration.
+
+### Agent configuration
+
+The config file also supports an `agents` section that defines the CLI commands used to launch each agent type during execution:
+
+```json
+{
+  "agents": {
+    "main": "claude --dangerously-skip-permissions --verbose --output-format stream-json",
+    "claude": "claude --dangerously-skip-permissions -p",
+    "codex": "codex --dangerously-bypass-approvals-and-sandbox exec",
+    "gemini": "gemini --yolo -p"
+  },
+  "remote_repo": "your-org/plan-executions"
+}
+```
+
+- **`main`** — the primary orchestrator agent (streams output)
+- **`claude`** — Claude sub-agent for implementation, review, and validation handoffs
+- **`codex`** — Codex sub-agent for code review (can-fail)
+- **`gemini`** — Gemini sub-agent for code review (can-fail)
 
 ## Structure
 
