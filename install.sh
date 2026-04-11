@@ -35,10 +35,9 @@ plugin_installed() {
 }
 
 clear_plugin_cache() {
-    local cache_dir="$HOME/.claude/plugins/cache/${MARKETPLACE_NAME}"
-    if [ -d "$cache_dir" ]; then
-        rm -rf "$cache_dir"
-    fi
+    local base="$HOME/.claude/plugins"
+    rm -rf "${base}/cache/${MARKETPLACE_NAME}" 2>/dev/null || true
+    rm -rf "${base}/marketplaces/${MARKETPLACE_NAME}" 2>/dev/null || true
 }
 
 install_plugin() {
