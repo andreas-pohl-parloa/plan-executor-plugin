@@ -129,7 +129,7 @@ When you receive a `<task-notification>` for the background job:
 
 ## Foreground Mode (`--foreground`)
 
-Identical to Launcher mode except the monitor runs synchronously. Use this when background tasks are unavailable (e.g. non-interactive execution).
+Identical to Launcher mode except the monitor runs synchronously. Use this when background tasks are not wanted (e.g. non-interactive execution).
 
 Steps 1 and 2 are the same as Launcher mode (identify PR, mark draft ready).
 
