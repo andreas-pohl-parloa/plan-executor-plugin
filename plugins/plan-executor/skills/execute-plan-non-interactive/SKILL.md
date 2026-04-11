@@ -188,7 +188,7 @@ For non-implementation prompt files (review, validation, integration), include t
    - If there were unresolved gaps from Phase 6, include them in a `Known Gaps` section.
 5. Unless `--no-pr`, `--draft-pr`, or `SKIP_PR=true`, mark the PR ready and hand off PR finalization to the executor via a bash handoff.
    - Locate `pr-monitor.sh` relative to this skill's plugin root: `${CLAUDE_PLUGIN_ROOT}/skills/pr-finalize/pr-monitor.sh`. Resolve the absolute path by reading the plugin cache directory from the current session (the same directory where this skill's SKILL.md was loaded from).
-   - Write a wrapper script at `<execution-root>/.tmp-subtask-pr-finalize.sh` that calls `pr-monitor.sh` with the correct arguments (owner, repo, PR number, HEAD SHA, push time, workdir, summary file, log file). The wrapper must also handle merge after the monitor exits when `--merge` or `--merge-admin` is in effect.
+   - Write a wrapper script at `<execution-root>/.tmp-subtask-pr-finalize.sh` that calls `pr-monitor.sh` with these exact flags: `--owner <owner> --repo <repo> --pr <number> --head-sha <sha> --push-time <epoch_seconds> --workdir <path> --summary-file <path> --log-file <path>`. The wrapper must also handle merge after the monitor exits when `--merge` or `--merge-admin` is in effect.
    - Emit a single bash handoff: `call sub-agent 1 (agent-type: bash): <absolute-path-to-wrapper>`
    - Persist state and stop so the executor runs the script.
    - On resume, read the summary file from the wrapper output to determine success or failure.
