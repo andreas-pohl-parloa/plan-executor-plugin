@@ -1,7 +1,7 @@
 ---
 name: plan-executor:pr-finalize
 description: Fix bug comments on a PR
-argument-hint: [pr-link] [--fix] [--merge] [--merge-admin]
+argument-hint: [pr-link] [--fix] [--foreground] [--merge] [--merge-admin]
 ---
 
 # PR Finalizer
@@ -11,13 +11,16 @@ lint errors, SonarCloud findings, and any other failing check.
 
 ## Mode Detection
 
-This skill operates in two modes based on arguments:
+This skill operates in three modes based on arguments:
 
-- **No `--fix`** → **Launcher mode**: starts a background monitor script that polls
+- **No `--fix`, no `--foreground`** → **Launcher mode**: starts a background monitor script that polls
   the PR and dispatches non-interactive Claude sessions for fixes. Token-efficient.
+- **`--foreground`** → **Foreground mode**: same as Launcher mode but runs the monitor synchronously
+  (no `run_in_background`). Used by `plan-executor:execute-plan-non-interactive` where background
+  tasks are not supported.
 - **`--fix`** → **Fixer mode**: called by the monitor script to fix specific issues.
 
-Optional merge flags (Launcher mode only):
+Optional merge flags (Launcher and Foreground modes):
 - **`--merge`** → merge the PR automatically after finalization via `gh pr merge --merge`
 - **`--merge-admin`** → merge with admin override via `gh pr merge --merge --admin`
 - **NEVER merge unless one of these flags was explicitly passed.**
@@ -121,6 +124,45 @@ When you receive a `<task-notification>` for the background job:
    - `--merge` → `gh pr merge --merge <PR_NUMBER> --repo <OWNER>/<REPO>`
    - `--merge-admin` → `gh pr merge --merge --admin <PR_NUMBER> --repo <OWNER>/<REPO>`
    - If neither flag was passed: do NOT merge, even if checks are green.
+   - If merge fails, report the error but do not retry automatically.
+
+---
+
+## Foreground Mode (`--foreground`)
+
+Identical to Launcher mode except the monitor runs synchronously. Use this when background tasks are unavailable (e.g. non-interactive execution).
+
+Steps 1 and 2 are the same as Launcher mode (identify PR, mark draft ready).
+
+### Step 3: Run the monitor in the foreground
+
+Use the same `pr-monitor.sh` command as Launcher mode, but run it via the `Bash` tool **without** `run_in_background`. This blocks until the monitor exits.
+
+```bash
+bash <skill-dir>/pr-monitor.sh \
+  --owner "$OWNER" \
+  --repo "$REPO" \
+  --pr "$PR_NUMBER" \
+  --head-sha "$HEAD_SHA" \
+  --push-time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --workdir "$(pwd)" \
+  --summary-file "$SUMMARY_FILE" \
+  --log-file "$LOG_FILE"
+```
+
+Set a generous timeout (e.g. `timeout: 600000`) since the monitor may run for several minutes.
+
+### Step 4: Handle the result
+
+When the command returns:
+1. Check the exit code. 0 = all checks green.
+2. Read `$SUMMARY_FILE` and report its contents.
+3. If exit code is non-zero, report the summary and the failure.
+4. Clean up temp files.
+5. **Merge (only if exit code is 0 and a merge flag was passed):**
+   - `--merge` → `gh pr merge --merge <PR_NUMBER> --repo <OWNER>/<REPO>`
+   - `--merge-admin` → `gh pr merge --merge --admin <PR_NUMBER> --repo <OWNER>/<REPO>`
+   - If neither flag was passed: do NOT merge.
    - If merge fails, report the error but do not retry automatically.
 
 ---
