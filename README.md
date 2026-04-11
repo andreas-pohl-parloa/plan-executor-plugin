@@ -72,24 +72,13 @@ plan-executor:superpowers-plan-handover
 
 Remote execution dispatches plans to GitHub Actions via a dedicated executions repository. One-time setup is required.
 
-### 1. Create an executions repository
-
-Create a private GitHub repository that will host the workflow runs (e.g. `your-org/plan-executions`). This repo only stores workflow definitions and job artifacts — no source code.
-
-### 2. Run the setup wizard
-
 ```bash
 plan-executor remote-setup
 ```
 
-The interactive wizard configures `~/.plan-executor/config.json` with:
+The interactive wizard creates a private executions repository on GitHub (you just give it a name), configures `~/.plan-executor/config.json` with the `remote_repo` slug, and stores the required secrets (`ANTHROPIC_API_KEY`, etc.) so runners can authenticate.
 
-- **`remote_repo`** — the GitHub `owner/repo` slug of the executions repository (e.g. `andreas-pohl-parloa/plan-executions`)
-- **GitHub Actions secrets** — the wizard stores the required secrets (`ANTHROPIC_API_KEY`, etc.) in the executions repo so runners can authenticate
-
-### 3. Verify
-
-After setup, `~/.plan-executor/config.json` should contain a `remote_repo` entry:
+After setup, `~/.plan-executor/config.json` contains a `remote_repo` entry:
 
 ```json
 {
@@ -97,7 +86,7 @@ After setup, `~/.plan-executor/config.json` should contain a `remote_repo` entry
 }
 ```
 
-You can re-run `plan-executor remote-setup` at any time to update the configuration.
+Re-run `plan-executor remote-setup` at any time to update the configuration.
 
 ### Agent configuration
 
