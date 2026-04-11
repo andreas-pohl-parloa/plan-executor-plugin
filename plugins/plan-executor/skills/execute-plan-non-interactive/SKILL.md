@@ -92,7 +92,7 @@ For non-implementation prompt files (review, validation, integration), include t
 1. For each implementation batch, write iteration-safe prompt files using the transport naming contract from `execute-plan-non-interactive/HANDOFF_PROTOCOL.md`.
 2. For implementation batches, use `.tmp-subtask-wave-<wave>-batch-<batch>-<N>.md` in the execution root.
 2a. Each emitted implementation prompt file MUST include the standard agent preamble defined above before any task content.
-3. Before stopping, persist the exact expected handoffs for the current batch in `.tmp-execute-plan-state.json`.
+3. Before stopping, write `.tmp-execute-plan-state.json` with a non-empty `handoffs` array containing one entry per emitted prompt file (`index`, `agentType`, `promptFile`, `canFail`). The executor will not dispatch sub-agents without this array.
 4. Print one `call sub-agent <N> (agent-type: <type>): <absolute-path>` line per emitted prompt file.
 5. Stop immediately after batch emission. Do NOT evaluate a batch until resumed outputs for that batch are provided.
 6. On resume, reread persisted state first, then parse `# output sub-agent <N>:` blocks using the transport contract.
@@ -213,7 +213,8 @@ Additionally, write the execution summary to `<execution-root>/.tmp-execution-su
 - `.tmp-execute-plan-state.json` is the source of truth for the current non-interactive execution point.
 - Persist state before every stop.
 - Reread state before every continuation parse.
-- State must always identify: skill version, plan path, execution root, current phase, current wave when applicable, current attempt when applicable, current batch, expected handoffs, and any batch-progress metadata needed for deterministic resume.
+- State must always identify: skill version, plan path, execution root, current phase, current wave when applicable, current attempt when applicable, current batch, and any batch-progress metadata needed for deterministic resume.
+- Every state file write that precedes a handoff stop MUST include a non-empty `handoffs` array per HANDOFF_PROTOCOL.md §5. Without this array, the executor cannot dispatch sub-agents.
 - Keep execution orchestration state separate from helper-owned review state and helper-owned validation state.
 - Never infer missing state from memory or ambient context when persisted state is available.
 

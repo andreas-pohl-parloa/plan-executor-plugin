@@ -75,7 +75,7 @@ After emitting any handoff batch, write:
 
 This file is the source of truth for the current execution point and the most recently emitted batch.
 
-Minimum schema:
+MANDATORY minimum schema — every state file write MUST include at least these fields:
 
 ```json
 {
@@ -117,7 +117,7 @@ Rules:
 - `attemptState` is required for any execution point that may span multiple batches and must contain enough metadata for deterministic resume.
 - `attemptState.requiredReviewers` may carry the reviewer set frozen by the helper for transport/resume purposes.
 - `canFail` MUST be `true` when `can-fail: true` was printed on the handoff line; `false` otherwise. Omitting the field is equivalent to `false`.
-- `handoffs` MUST preserve the exact order of the printed handoff lines.
+- **`handoffs` is MANDATORY on every state file write that precedes a stop for continuation input.** It MUST contain one entry per emitted `call sub-agent` line, preserving the exact order. A state file without a non-empty `handoffs` array will not be recognized by the executor.
 - Fully update the state file before stopping for continuation input.
 
 ## 6. Continuation payload
