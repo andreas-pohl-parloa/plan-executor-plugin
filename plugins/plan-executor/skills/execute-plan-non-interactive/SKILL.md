@@ -187,7 +187,7 @@ For non-implementation prompt files (review, validation, integration), include t
    - The PR body should summarize what was implemented, organized by sub-task.
    - If there were unresolved gaps from Phase 6, include them in a `Known Gaps` section.
 5. Unless `--no-pr`, `--draft-pr`, or `SKIP_PR=true`, mark the PR ready and invoke `plan-executor:pr-finalize` with `--foreground`.
-   - Always pass `--foreground` so the monitor runs synchronously (background tasks are not available in non-interactive mode).
+   - Always pass `--foreground` so the monitor runs synchronously.
    - If `--merge` is in effect, pass `--merge` to `plan-executor:pr-finalize`.
    - If `--merge-admin` is in effect, pass `--merge-admin` to `plan-executor:pr-finalize`.
    - This step is MANDATORY whenever the normal PR path is enabled. Do NOT skip it.

@@ -16,8 +16,7 @@ This skill operates in three modes based on arguments:
 - **No `--fix`, no `--foreground`** → **Launcher mode**: starts a background monitor script that polls
   the PR and dispatches non-interactive Claude sessions for fixes. Token-efficient.
 - **`--foreground`** → **Foreground mode**: same as Launcher mode but runs the monitor synchronously
-  (no `run_in_background`). Used by `plan-executor:execute-plan-non-interactive` where background
-  tasks are not supported.
+  (no `run_in_background`).
 - **`--fix`** → **Fixer mode**: called by the monitor script to fix specific issues.
 
 Optional merge flags (Launcher and Foreground modes):
