@@ -313,6 +313,17 @@ Example:
 **add-plugins:** superpowers@claude-plugins-official, plan-executor@plan-executor, security@claudes-kitchen
 ```
 
+#### Push all local commits before launching
+
+The remote runner clones the repo at the current HEAD. If local commits have not been pushed, the runner will fail with `fatal: unable to read tree`.
+
+Before calling `plan-executor execute`, ensure the current branch is fully pushed:
+
+1. Run `git status --short` in the repository root. If there are uncommitted changes, stop and print: `Uncommitted changes in the repository. Commit or stash them before launching remote execution.`
+2. Run `git log @{upstream}..HEAD --oneline 2>/dev/null` to check for unpushed commits.
+3. If there are unpushed commits, run `git push` and wait for it to succeed. If the push fails, stop and print the error.
+4. Only after the push succeeds (or no unpushed commits exist), proceed to launch.
+
 Run `plan-executor execute <migrated-plan-path>` via the Bash tool.
 
 Then report and stop:
