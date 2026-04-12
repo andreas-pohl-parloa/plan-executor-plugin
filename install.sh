@@ -277,5 +277,15 @@ else
     info "Skipping sjv (SKIP_SJV is set)"
 fi
 
+# Check if remote execution is configured
+if [ -f "$HOME/.plan-executor/config.json" ]; then
+    remote_repo="$(grep -o '"remote_repo"[[:space:]]*:[[:space:]]*"[^"]*"' "$HOME/.plan-executor/config.json" 2>/dev/null | head -1 | sed 's/.*: *"//' | sed 's/"//')"
+    if [ -z "$remote_repo" ]; then
+        echo ""
+        info "Remote execution is not configured."
+        info "Run 'plan-executor remote-setup' to enable it."
+    fi
+fi
+
 echo ""
 ok "Done. Restart Claude Code to apply changes."
