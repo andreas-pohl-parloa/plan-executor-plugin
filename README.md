@@ -20,43 +20,40 @@ The script is idempotent: re-running it does a clean reinstall (removes, clears 
 
 ## Planning and Execution Flow
 
-The typical workflow from idea to running code:
+```mermaid
+flowchart TD
+    A["build feature X"] --> B
 
-```
-                        "build feature X"
-                               |
-                   +-----------+-----------+
-                   |      Brainstorm       |  superpowers:brainstorming
-                   +-----------+-----------+
-                               |
-                   +-----------+-----------+
-                   |         Plan          |  superpowers:writing-plans
-                   +-----------+-----------+
-                               |
-                   PostToolUse hook fires
-                               |
-                   +-----------+-----------+
-                   |       Handover        |  plan-executor:superpowers-plan-handover
-                   +-----------+-----------+
-                               |
-       +-----------+-----------+-----------+-----------+
-       |           |           |                       |
-  +----+-----+ +---+------+ +-+-------------+ +-------+--------+
-  | Inline   | | Subagent | | Interactive   | | Local / Remote |
-  +----------+ +----------+ +---------------+ +----------------+
-  | Current  | | One agent| | Waves + 4-rev | | plan-executor  |
-  | session  | | per task | | code review   | | daemon / GH    |
-  +----------+ +----------+ +---------------+ +----------------+
+    B["Brainstorm<br/><code>superpowers:brainstorming</code>"]:::stage --> C
+    C["Plan<br/><code>superpowers:writing-plans</code>"]:::stage --> D
+
+    D{{"PostToolUse hook fires"}}:::hook --> E
+    E["Handover<br/><code>plan-executor:superpowers-plan-handover</code>"]:::stage --> F
+
+    F{Choose execution mode}:::choice
+
+    F --> G["Inline<br/>Current session"]:::superpowers
+    F --> H["Subagent<br/>One agent per task"]:::superpowers
+    F --> I["Interactive<br/>Waves + 4-agent review"]:::executor
+    F --> J["Local<br/>plan-executor daemon"]:::executor
+    F --> K["Remote<br/>GitHub Actions"]:::executor
+
+    classDef stage fill:#4a90d9,stroke:#2a6cb0,color:#fff
+    classDef hook fill:#e8a838,stroke:#c08020,color:#fff
+    classDef choice fill:#666,stroke:#444,color:#fff
+    classDef superpowers fill:#7c3aed,stroke:#5b21b6,color:#fff
+    classDef executor fill:#059669,stroke:#047857,color:#fff
 ```
 
-1. **Brainstorm** — `superpowers:brainstorming` explores the idea through questions, proposes approaches, and writes a design spec.
-2. **Plan** — `superpowers:writing-plans` turns the spec into a detailed implementation plan with bite-sized TDD tasks.
-3. **Handover** — The `PostToolUse` hook automatically triggers `plan-executor:superpowers-plan-handover` after the plan is written. The user chooses an execution mode.
-4. **Execute** — Depending on the mode:
-   - **Superpowers** modes execute directly via Superpowers skills.
-   - **Plan-Executor Interactive** runs wave-based execution with code review (Phase 5) and plan validation (Phase 6). Code review dispatches a 4-agent reviewer team (Claude + Codex + Gemini + Security) in parallel, triages findings, and drives fix loops.
-   - **Plan-Executor Local** submits the plan to the `plan-executor` daemon running on the local machine.
-   - **Plan-Executor Remote** submits the plan to be executed via GitHub Actions. The plan includes `add-marketplaces` and `add-plugins` headers so the remote runner installs the same plugin environment.
+| Step | What happens |
+|------|-------------|
+| **Brainstorm** | `superpowers:brainstorming` explores the idea, asks questions, writes a design spec |
+| **Plan** | `superpowers:writing-plans` turns the spec into a step-by-step implementation plan |
+| **Handover** | `PostToolUse` hook triggers `plan-executor:superpowers-plan-handover` — user chooses a mode |
+| **Inline / Subagent** | Execute directly via Superpowers skills |
+| **Interactive** | Wave-based execution with code review (Claude + Codex + Gemini + Security) and plan validation |
+| **Local** | Hand off to the `plan-executor` daemon on the local machine |
+| **Remote** | Hand off to GitHub Actions for non-interactive execution |
 
 > [!WARNING]
 > Remote execution requires one-time setup — see [Remote Setup](#remote-setup) below.
