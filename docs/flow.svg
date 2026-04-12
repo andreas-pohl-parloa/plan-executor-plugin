@@ -68,7 +68,7 @@
   <text x="109" y="204" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="600">INLINE</text>
   <text x="109" y="232" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="600">Local</text>
   <text x="109" y="250" text-anchor="middle" fill="#8b949e" font-size="10">in session</text>
-  <text x="109" y="264" text-anchor="middle" fill="#8b949e" font-size="9" opacity="0.7">current session</text>
+  <text x="109" y="264" text-anchor="middle" fill="#8b949e" font-size="9" opacity="0.7">no agents</text>
 
   <!-- Subagent box -->
   <rect x="188" y="180" width="138" height="116" rx="6" fill="#252540" stroke="#5b4a9e" stroke-width="1"/>
