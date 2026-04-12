@@ -18,7 +18,7 @@
   <polygon points="217,87 222,95 227,87" fill="#8b949e"/>
 
   <!-- Brainstorm -->
-  <rect x="72" y="96" width="300" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
+  <rect x="12" y="96" width="420" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
   <text x="222" y="118" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Brainstorm</text>
   <text x="222" y="137" text-anchor="middle" fill="#d0e4f7" font-size="12">superpowers:brainstorming</text>
 
@@ -26,7 +26,7 @@
   <polygon points="217,167 222,175 227,167" fill="#8b949e"/>
 
   <!-- Plan -->
-  <rect x="72" y="176" width="300" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
+  <rect x="12" y="176" width="420" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
   <text x="222" y="198" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Plan</text>
   <text x="222" y="217" text-anchor="middle" fill="#d0e4f7" font-size="12">superpowers:writing-plans</text>
 
@@ -39,7 +39,7 @@
   <polygon points="217,277 222,285 227,277" fill="#8b949e"/>
 
   <!-- Handover -->
-  <rect x="72" y="286" width="300" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
+  <rect x="12" y="286" width="420" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
   <text x="222" y="308" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Handover</text>
   <text x="222" y="327" text-anchor="middle" fill="#d0e4f7" font-size="12">plan-executor:superpowers-plan-handover</text>
 
