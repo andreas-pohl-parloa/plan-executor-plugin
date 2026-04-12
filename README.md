@@ -23,22 +23,30 @@ The script is idempotent: re-running it does a clean reinstall (removes, clears 
 The typical workflow from idea to running code:
 
 ```
-User: "build feature X"
-       │
-       ▼
-superpowers:brainstorming        ← explore the idea, ask questions, write a design spec
-       │
-       ▼
-superpowers:writing-plans        ← turn the spec into a step-by-step implementation plan
-       │
-       ▼ (PostToolUse hook fires automatically)
-plan-executor:superpowers-plan-handover
-       │
-       ├─► Superpowers Inline     ← execute in the current session
-       ├─► Superpowers Subagent   ← execute with one subagent per task
-       ├─► Plan-Executor Interactive  ← wave-based orchestration + 4-agent review team
-       ├─► Plan-Executor Local    ← hand off to the local daemon (non-interactive)
-       └─► Plan-Executor Remote   ← hand off to GitHub Actions (non-interactive)
+                        "build feature X"
+                               |
+                   +-----------+-----------+
+                   |      Brainstorm       |  superpowers:brainstorming
+                   +-----------+-----------+
+                               |
+                   +-----------+-----------+
+                   |         Plan          |  superpowers:writing-plans
+                   +-----------+-----------+
+                               |
+                   PostToolUse hook fires
+                               |
+                   +-----------+-----------+
+                   |       Handover        |  plan-executor:superpowers-plan-handover
+                   +-----------+-----------+
+                               |
+       +-----------+-----------+-----------+-----------+
+       |           |           |                       |
+  +----+-----+ +---+------+ +-+-------------+ +-------+--------+
+  | Inline   | | Subagent | | Interactive   | | Local / Remote |
+  +----------+ +----------+ +---------------+ +----------------+
+  | Current  | | One agent| | Waves + 4-rev | | plan-executor  |
+  | session  | | per task | | code review   | | daemon / GH    |
+  +----------+ +----------+ +---------------+ +----------------+
 ```
 
 1. **Brainstorm** — `superpowers:brainstorming` explores the idea through questions, proposes approaches, and writes a design spec.
