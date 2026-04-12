@@ -172,17 +172,8 @@ setup_plan_executor() {
     local base_dir="$HOME/.plan-executor"
     local config="$base_dir/config.json"
 
-    # Ensure config exists
-    if [ ! -f "$config" ]; then
-        mkdir -p "$base_dir"
-        cat > "$config" << EOCFG
-{
-  "watch_dirs": ["~/workspace/code", "~/tools"],
-  "plan_patterns": ["**/.my/plans/*.md"],
-  "auto_execute": false
-}
-EOCFG
-    fi
+    # Ensure config dir exists (the daemon creates config.json on first run if missing)
+    mkdir -p "$base_dir"
 
     # Add shell hook if not present
     local hook='command -v plan-executor >/dev/null 2>&1 && plan-executor ensure 2>/dev/null'
