@@ -17,6 +17,7 @@ MIN_BUGBOT_WAIT_SECS=360  # wait at least 6 min after last push before counting 
                           # (CI takes ~2min, Bugbot analysis takes ~2-3min after CI)
 MAX_INFRA_RETRIES=3       # max times to re-run a failing infra check before giving up on it
 MAX_FIX_SESSIONS=20       # max fix sessions before giving up (prevents infinite loops)
+MAX_POLL_ITERATIONS=120   # max poll iterations (~30 min at 15s interval) before giving up
 
 OWNER=""
 REPO=""
@@ -520,6 +521,7 @@ main() {
     parse_args "$@"
     local consecutive_clean=0
     local fix_count=0
+    local poll_count=0
     local infra_retry_count=0  # how many times we've tried to re-run infra checks
     local seen_thread_ids=""   # space-separated list of thread IDs already attempted
 
@@ -543,6 +545,20 @@ main() {
     } > "$SUMMARY_FILE"
 
     while true; do
+        poll_count=$((poll_count + 1))
+        if [[ $poll_count -gt $MAX_POLL_ITERATIONS ]]; then
+            echo ""
+            echo "╔══════════════════════════════════════════════════════════════╗"
+            echo "║  PR MONITOR TIMED OUT — MAX POLL ITERATIONS REACHED          ║"
+            echo "╚══════════════════════════════════════════════════════════════╝"
+            echo ""
+            echo "Reached ${MAX_POLL_ITERATIONS} poll iterations (~$((MAX_POLL_ITERATIONS * POLL_INTERVAL / 60)) min)."
+            echo "HEAD SHA: ${HEAD_SHA}"
+            echo "This may indicate an incorrect --head-sha or checks that never complete."
+            finalize_summary "$fix_count" "TIMEOUT — max poll iterations (${MAX_POLL_ITERATIONS}) reached"
+            exit 4
+        fi
+
         local issues infra_json
         echo "[]" > "$INFRA_TMP"  # reset each poll
         issues=$(collect_issues) || issues=""
