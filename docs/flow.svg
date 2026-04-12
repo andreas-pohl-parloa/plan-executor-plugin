@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 810 520" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 444 570" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
   <defs>
     <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
       <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
@@ -6,108 +6,89 @@
   </defs>
 
   <!-- Background -->
-  <rect width="810" height="520" rx="12" fill="#0d1117"/>
+  <rect width="444" height="570" rx="12" fill="#0d1117"/>
 
-  <!-- ══════════ Pipeline (x center = 300) ══════════ -->
+  <!-- ══════════ Pipeline (center = 222) ══════════ -->
 
   <!-- User input -->
-  <rect x="180" y="24" width="240" height="44" rx="22" fill="none" stroke="#8b949e" stroke-width="1.5"/>
-  <text x="300" y="51" text-anchor="middle" fill="#e6edf3" font-size="15" font-weight="600">"build feature X"</text>
+  <rect x="102" y="24" width="240" height="44" rx="22" fill="none" stroke="#8b949e" stroke-width="1.5"/>
+  <text x="222" y="51" text-anchor="middle" fill="#e6edf3" font-size="15" font-weight="600">"build feature X"</text>
 
-  <line x1="300" y1="68" x2="300" y2="90" stroke="#8b949e" stroke-width="1.5"/>
-  <polygon points="295,87 300,95 305,87" fill="#8b949e"/>
+  <line x1="222" y1="68" x2="222" y2="90" stroke="#8b949e" stroke-width="1.5"/>
+  <polygon points="217,87 222,95 227,87" fill="#8b949e"/>
 
   <!-- Brainstorm -->
-  <rect x="150" y="96" width="300" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
-  <text x="300" y="118" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Brainstorm</text>
-  <text x="300" y="137" text-anchor="middle" fill="#d0e4f7" font-size="12">superpowers:brainstorming</text>
+  <rect x="72" y="96" width="300" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
+  <text x="222" y="118" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Brainstorm</text>
+  <text x="222" y="137" text-anchor="middle" fill="#d0e4f7" font-size="12">superpowers:brainstorming</text>
 
-  <line x1="300" y1="148" x2="300" y2="170" stroke="#8b949e" stroke-width="1.5"/>
-  <polygon points="295,167 300,175 305,167" fill="#8b949e"/>
+  <line x1="222" y1="148" x2="222" y2="170" stroke="#8b949e" stroke-width="1.5"/>
+  <polygon points="217,167 222,175 227,167" fill="#8b949e"/>
 
   <!-- Plan -->
-  <rect x="150" y="176" width="300" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
-  <text x="300" y="198" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Plan</text>
-  <text x="300" y="217" text-anchor="middle" fill="#d0e4f7" font-size="12">superpowers:writing-plans</text>
+  <rect x="72" y="176" width="300" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
+  <text x="222" y="198" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Plan</text>
+  <text x="222" y="217" text-anchor="middle" fill="#d0e4f7" font-size="12">superpowers:writing-plans</text>
 
   <!-- Hook -->
-  <line x1="300" y1="228" x2="300" y2="264" stroke="#e8a838" stroke-width="1.5" stroke-dasharray="5,3"/>
-  <rect x="198" y="237" width="204" height="22" rx="11" fill="#e8a838"/>
-  <text x="300" y="252" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">PostToolUse hook fires</text>
+  <line x1="222" y1="228" x2="222" y2="264" stroke="#e8a838" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <rect x="120" y="237" width="204" height="22" rx="11" fill="#e8a838"/>
+  <text x="222" y="252" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">PostToolUse hook fires</text>
 
-  <line x1="300" y1="264" x2="300" y2="280" stroke="#8b949e" stroke-width="1.5"/>
-  <polygon points="295,277 300,285 305,277" fill="#8b949e"/>
+  <line x1="222" y1="264" x2="222" y2="280" stroke="#8b949e" stroke-width="1.5"/>
+  <polygon points="217,277 222,285 227,277" fill="#8b949e"/>
 
   <!-- Handover -->
-  <rect x="150" y="286" width="300" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
-  <text x="300" y="308" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Handover</text>
-  <text x="300" y="327" text-anchor="middle" fill="#d0e4f7" font-size="12">plan-executor:superpowers-plan-handover</text>
+  <rect x="72" y="286" width="300" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
+  <text x="222" y="308" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Handover</text>
+  <text x="222" y="327" text-anchor="middle" fill="#d0e4f7" font-size="12">plan-executor:superpowers-plan-handover</text>
 
-  <!-- ══════════ Fan-out ══════════ -->
-  <line x1="300" y1="338" x2="300" y2="368" stroke="#8b949e" stroke-width="1.5"/>
+  <!-- ══════════ Single arrow down ══════════ -->
+  <line x1="222" y1="338" x2="222" y2="380" stroke="#8b949e" stroke-width="1.5"/>
+  <polygon points="217,377 222,385 227,377" fill="#8b949e"/>
 
-  <!-- Left branch -->
-  <line x1="300" y1="368" x2="111" y2="368" stroke="#8b949e" stroke-width="1.5"/>
-  <line x1="111" y1="368" x2="111" y2="396" stroke="#8b949e" stroke-width="1.5"/>
-  <polygon points="106,393 111,401 116,393" fill="#8b949e"/>
+  <!-- ══════════ Execution modes (outer box) ══════════ -->
+  <rect x="12" y="388" width="420" height="160" rx="10" fill="#111820" stroke="#30363d" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="222" y="408" text-anchor="middle" fill="#8b949e" font-size="11" font-weight="600" letter-spacing="1.5">EXECUTION MODES</text>
 
-  <!-- Right branch (symmetric: same distance from center as left) -->
-  <line x1="300" y1="368" x2="489" y2="368" stroke="#8b949e" stroke-width="1.5"/>
-  <line x1="489" y1="368" x2="489" y2="396" stroke="#8b949e" stroke-width="1.5"/>
-  <polygon points="484,393 489,401 494,393" fill="#8b949e"/>
+  <!-- ── Superpowers group ── -->
+  <rect x="22" y="418" width="156" height="118" rx="8" fill="#1c1c2e" stroke="#7c3aed" stroke-width="2"/>
+  <text x="100" y="438" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="600" letter-spacing="1">SUPERPOWERS</text>
 
-  <!-- ══════════ Superpowers ══════════ -->
-  <rect x="16" y="402" width="190" height="80" rx="8" fill="#1c1c2e" stroke="#7c3aed" stroke-width="2" filter="url(#shadow)"/>
-  <text x="111" y="424" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="600" letter-spacing="1">SUPERPOWERS</text>
-  <text x="65" y="450" text-anchor="middle" fill="#e6edf3" font-size="14" font-weight="600">Inline</text>
-  <text x="65" y="467" text-anchor="middle" fill="#8b949e" font-size="11">current session</text>
-  <line x1="111" y1="437" x2="111" y2="475" stroke="#3b3b5c" stroke-width="1" opacity="0.3"/>
-  <text x="157" y="450" text-anchor="middle" fill="#e6edf3" font-size="14" font-weight="600">Subagent</text>
-  <text x="157" y="467" text-anchor="middle" fill="#8b949e" font-size="11">agent per task</text>
+  <!-- Inline box -->
+  <rect x="28" y="448" width="70" height="76" rx="6" fill="#252540" stroke="#5b4a9e" stroke-width="1"/>
+  <text x="63" y="466" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="600">INLINE</text>
+  <text x="63" y="488" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="600">Local</text>
+  <text x="63" y="502" text-anchor="middle" fill="#8b949e" font-size="8">current</text>
+  <text x="63" y="512" text-anchor="middle" fill="#8b949e" font-size="8">session</text>
 
-  <!-- ══════════ Plan-Executor (outer) ══════════ -->
-  <rect x="222" y="402" width="410" height="100" rx="10" fill="#0c1f2e" stroke="#10b981" stroke-width="2.5" filter="url(#shadow)"/>
-  <text x="427" y="424" text-anchor="middle" fill="#6ee7b7" font-size="12" font-weight="700" letter-spacing="1.5">PLAN-EXECUTOR</text>
+  <!-- Subagent box -->
+  <rect x="104" y="448" width="70" height="76" rx="6" fill="#252540" stroke="#5b4a9e" stroke-width="1"/>
+  <text x="139" y="466" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="600">SUBAGENT</text>
+  <text x="139" y="488" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="600">Local</text>
+  <text x="139" y="502" text-anchor="middle" fill="#8b949e" font-size="8">agent</text>
+  <text x="139" y="512" text-anchor="middle" fill="#8b949e" font-size="8">per task</text>
 
-  <!-- Interactive -->
-  <rect x="238" y="436" width="160" height="56" rx="6" fill="#112233" stroke="#3b82f6" stroke-width="1.5"/>
-  <text x="318" y="456" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="600">INTERACTIVE</text>
-  <text x="318" y="476" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Waves + 4-agent review</text>
+  <!-- ── Plan-Executor group ── -->
+  <rect x="188" y="418" width="236" height="118" rx="8" fill="#0f1d33" stroke="#3b82f6" stroke-width="2"/>
+  <text x="306" y="438" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="700" letter-spacing="1.5">PLAN-EXECUTOR</text>
 
-  <!-- Non-interactive -->
-  <rect x="414" y="436" width="204" height="56" rx="6" fill="#062b1e" stroke="#10b981" stroke-width="1.5"/>
-  <text x="516" y="456" text-anchor="middle" fill="#6ee7b7" font-size="11" font-weight="600">NON-INTERACTIVE</text>
-  <text x="470" y="476" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Local</text>
-  <text x="470" y="488" text-anchor="middle" fill="#8b949e" font-size="10">daemon</text>
-  <line x1="504" y1="466" x2="504" y2="490" stroke="#134e30" stroke-width="1"/>
-  <text x="558" y="476" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Remote</text>
-  <text x="558" y="488" text-anchor="middle" fill="#8b949e" font-size="10">GitHub Actions</text>
+  <!-- Interactive box -->
+  <rect x="194" y="448" width="70" height="76" rx="6" fill="#112244" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="229" y="464" text-anchor="middle" fill="#93c5fd" font-size="8" font-weight="600">INTERACTIVE</text>
+  <text x="229" y="486" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="600">Local</text>
+  <text x="229" y="500" text-anchor="middle" fill="#8b949e" font-size="8">agent per task</text>
+  <text x="229" y="510" text-anchor="middle" fill="#8b949e" font-size="8">+ reviewer team</text>
 
-  <!-- ══════════ Legend (right column) ══════════ -->
-  <rect x="540" y="46" width="150" height="220" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
-  <text x="615" y="72" text-anchor="middle" fill="#8b949e" font-size="11" font-weight="700" letter-spacing="1.5">LEGEND</text>
+  <!-- Local autonomous box -->
+  <rect x="270" y="448" width="70" height="76" rx="6" fill="#0a2e26" stroke="#14b8a6" stroke-width="1.5"/>
+  <text x="305" y="464" text-anchor="middle" fill="#5eead4" font-size="8" font-weight="600">AUTONOMOUS</text>
+  <text x="305" y="486" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="600">Local</text>
+  <text x="305" y="500" text-anchor="middle" fill="#8b949e" font-size="8">daemon</text>
 
-  <!-- Pipeline stage -->
-  <rect x="560" y="92" width="14" height="14" rx="3" fill="#4a90d9"/>
-  <text x="582" y="103" fill="#e6edf3" font-size="12">Pipeline stage</text>
-
-  <!-- Hook -->
-  <rect x="560" y="122" width="14" height="14" rx="3" fill="#e8a838"/>
-  <text x="582" y="133" fill="#e6edf3" font-size="12">Automatic hook</text>
-
-  <!-- Superpowers -->
-  <rect x="560" y="152" width="14" height="14" rx="3" fill="none" stroke="#7c3aed" stroke-width="2"/>
-  <text x="582" y="163" fill="#e6edf3" font-size="12">Superpowers</text>
-
-  <!-- Plan-Executor -->
-  <rect x="560" y="182" width="14" height="14" rx="3" fill="none" stroke="#10b981" stroke-width="2"/>
-  <text x="582" y="193" fill="#e6edf3" font-size="12">Plan-Executor</text>
-
-  <!-- Interactive -->
-  <rect x="560" y="212" width="14" height="14" rx="3" fill="none" stroke="#3b82f6" stroke-width="1.5"/>
-  <text x="582" y="223" fill="#e6edf3" font-size="12">Interactive</text>
-
-  <!-- Non-interactive -->
-  <rect x="560" y="242" width="14" height="14" rx="3" fill="#062b1e" stroke="#10b981" stroke-width="1.5"/>
-  <text x="582" y="253" fill="#e6edf3" font-size="12">Non-interactive</text>
+  <!-- Remote autonomous box -->
+  <rect x="346" y="448" width="70" height="76" rx="6" fill="#062b1e" stroke="#10b981" stroke-width="1.5"/>
+  <text x="381" y="464" text-anchor="middle" fill="#6ee7b7" font-size="8" font-weight="600">AUTONOMOUS</text>
+  <text x="381" y="486" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="600">Remote</text>
+  <text x="381" y="500" text-anchor="middle" fill="#8b949e" font-size="8">GitHub Actions</text>
 </svg>
