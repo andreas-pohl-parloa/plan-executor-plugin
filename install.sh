@@ -219,7 +219,7 @@ run_remote_uninstaller() {
     local repo="$1"
     local script
     script="$(gh api "repos/${repo}/contents/install.sh" --header 'Accept: application/vnd.github.raw' 2>/dev/null)" || return 1
-    bash -c "$script" -- uninstall 2>/dev/null
+    bash -c "$script" -- uninstall || true
 }
 
 uninstall_plugin() {
