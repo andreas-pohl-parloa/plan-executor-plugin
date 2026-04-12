@@ -1,6 +1,6 @@
 # plan-executor-plugin
 
-Claude Code plugin marketplace for plan execution pipeline — orchestration, validation, code review, and binary dependency management.
+Claude Code plugin marketplace for autonomous plan execution — orchestration, code review, validation, and PR management.
 
 ## Install
 

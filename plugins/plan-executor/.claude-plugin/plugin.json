@@ -1,6 +1,6 @@
 {
   "name": "plan-executor",
-  "description": "Plan execution pipeline: orchestration, validation, review, and binary dependency management",
+  "description": "Autonomous plan execution — orchestration, code review, validation, and PR management",
   "author": {
     "name": "Andreas Pohl"
   }
