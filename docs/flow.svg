@@ -90,8 +90,8 @@
   <text x="442" y="273" text-anchor="middle" fill="#8b949e" font-size="9" opacity="0.7">reviewer team + PR mgmt</text>
 
   <!-- Local autonomous box -->
-  <rect x="530" y="180" width="156" height="116" rx="6" fill="#0a2e26" stroke="#14b8a6" stroke-width="1.5"/>
-  <text x="608" y="204" text-anchor="middle" fill="#5eead4" font-size="13" font-weight="600">AUTONOMOUS</text>
+  <rect x="530" y="180" width="156" height="116" rx="6" fill="#0c2633" stroke="#0e9aa7" stroke-width="1.5"/>
+  <text x="608" y="204" text-anchor="middle" fill="#67d4c4" font-size="13" font-weight="600">AUTONOMOUS</text>
   <text x="608" y="232" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="600">Local</text>
   <text x="608" y="250" text-anchor="middle" fill="#8b949e" font-size="10">local daemon</text>
   <text x="608" y="262" text-anchor="middle" fill="#8b949e" font-size="9" opacity="0.7">agent per task</text>
