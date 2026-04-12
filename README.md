@@ -20,30 +20,9 @@ The script is idempotent: re-running it does a clean reinstall (removes, clears 
 
 ## Planning and Execution Flow
 
-```mermaid
-flowchart TD
-    A["build feature X"] --> B
-
-    B["Brainstorm<br/><code>superpowers:brainstorming</code>"]:::stage --> C
-    C["Plan<br/><code>superpowers:writing-plans</code>"]:::stage --> D
-
-    D{{"PostToolUse hook fires"}}:::hook --> E
-    E["Handover<br/><code>plan-executor:superpowers-plan-handover</code>"]:::stage --> F
-
-    F{Choose execution mode}:::choice
-
-    F --> G["Inline<br/>Current session"]:::superpowers
-    F --> H["Subagent<br/>One agent per task"]:::superpowers
-    F --> I["Interactive<br/>Waves + 4-agent review"]:::executor
-    F --> J["Local<br/>plan-executor daemon"]:::executor
-    F --> K["Remote<br/>GitHub Actions"]:::executor
-
-    classDef stage fill:#4a90d9,stroke:#2a6cb0,color:#fff
-    classDef hook fill:#e8a838,stroke:#c08020,color:#fff
-    classDef choice fill:#666,stroke:#444,color:#fff
-    classDef superpowers fill:#7c3aed,stroke:#5b21b6,color:#fff
-    classDef executor fill:#059669,stroke:#047857,color:#fff
-```
+<picture>
+  <img src="docs/flow.svg" alt="Planning and execution flow" width="720">
+</picture>
 
 | Step | What happens |
 |------|-------------|
