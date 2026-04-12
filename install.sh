@@ -216,12 +216,10 @@ EOCFG
 # ── uninstall ─────────────────────────────────────────────────────────────
 
 run_remote_uninstaller() {
-    local repo="$1" action="$2"
-    local tmpdir
-    tmpdir=$(mktemp -d)
-    gh repo clone "$repo" "${tmpdir}/repo" -- --quiet 2>/dev/null || { rm -rf "$tmpdir"; return 1; }
-    bash "${tmpdir}/repo/install.sh" "$action" 2>/dev/null
-    rm -rf "$tmpdir"
+    local repo="$1"
+    local script
+    script="$(gh api "repos/${repo}/contents/install.sh" --header 'Accept: application/vnd.github.raw' 2>/dev/null)" || return 1
+    bash -c "$script" -- uninstall 2>/dev/null
 }
 
 uninstall_plugin() {
