@@ -60,7 +60,7 @@ Remote execution dispatches plans to GitHub Actions via a dedicated executions r
 plan-executor remote-setup
 ```
 
-The interactive wizard creates a private executions repository on GitHub (you just give it a name), configures `~/.plan-executor/config.json` with the `remote_repo` slug, and stores the required secrets (`ANTHROPIC_API_KEY`, etc.) so runners can authenticate.
+The interactive wizard creates a private executions repository on GitHub (you just give it a name), configures `~/.plan-executor/config.json` with the `remote_repo` slug, and stores the required credentials (`ANTHROPIC_API_KEY`, etc.) as encrypted GitHub repository secrets so runners can authenticate.
 
 After setup, `~/.plan-executor/config.json` contains a `remote_repo` entry:
 
