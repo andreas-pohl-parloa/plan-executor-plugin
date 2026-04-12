@@ -43,7 +43,7 @@ The script is idempotent: re-running it does a clean reinstall (removes, clears 
 |-------|-------------|
 | `/plan-executor:execute-plan` | Execute a READY plan interactively with review checkpoints |
 | `/plan-executor:execute-plan-non-interactive` | Execute a plan via deterministic non-interactive handoffs |
-| `/plan-executor:pr-finalize` | Fix bug comments on a PR |
+| `/plan-executor:pr-finalize` | Fix bug comments on a PR, auto-merge if requested |
 | `/plan-executor:review-execution-output` | Review completed execution output in the current agent |
 | `/plan-executor:review-execution-output-non-interactive` | Non-interactive code review via prompt-file handoffs |
 | `/plan-executor:run-reviewer-team` | Launch parallel Claude + Codex + Gemini + Security reviewer set |
