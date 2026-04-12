@@ -267,11 +267,14 @@ fi
 info "Installing plan-executor binary..."
 pe_result="$(install_binary "plan-executor" "$PLAN_EXECUTOR_SLUG" "$HOME/.plan-executor/installed-version" "$HOME/.plan-executor")"
 case "$pe_result" in
-    installed) ok "Binary installed." ; setup_plan_executor ;;
-    updated)   ok "Binary updated."   ; setup_plan_executor ;;
+    installed) ok "Binary installed." ;;
+    updated)   ok "Binary updated."   ;;
     exists)    ok "Binary up to date." ;;
     *)         fail "Binary install failed. Run manually: gh repo clone ${PLAN_EXECUTOR_SLUG} && cd plan-executor && bash install.sh" ;;
 esac
+if [ "$pe_result" != "failed" ]; then
+    setup_plan_executor
+fi
 
 # Install sjv binary
 if [ -z "$SKIP_SJV" ]; then
