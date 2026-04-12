@@ -35,16 +35,16 @@
   <text x="427" y="64" text-anchor="middle" fill="#c4b5fd" font-size="8" opacity="0.7">superpowers:writing-plans</text>
 
   <!-- Arrow to hook -->
-  <line x1="502" y1="54" x2="518" y2="54" stroke="#8b949e" stroke-width="1.5"/>
-  <polygon points="515,49 523,54 515,59" fill="#8b949e"/>
+  <line x1="502" y1="54" x2="518" y2="54" stroke="#e8a838" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="515,49 523,54 515,59" fill="#e8a838"/>
 
   <!-- Hook box -->
   <rect x="524" y="38" width="70" height="32" rx="6" fill="none" stroke="#e8a838" stroke-width="2"/>
   <text x="559" y="58" text-anchor="middle" fill="#e8a838" font-size="9" font-weight="600">Hook fires</text>
 
   <!-- Arrow from hook -->
-  <line x1="594" y1="54" x2="608" y2="54" stroke="#8b949e" stroke-width="1.5"/>
-  <polygon points="605,49 613,54 605,59" fill="#8b949e"/>
+  <line x1="594" y1="54" x2="608" y2="54" stroke="#e8a838" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="605,49 613,54 605,59" fill="#e8a838"/>
 
   <!-- Handover -->
   <rect x="614" y="38" width="256" height="32" rx="6" fill="#0f1d33" stroke="#3b82f6" stroke-width="2"/>
