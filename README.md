@@ -21,7 +21,7 @@ The script is idempotent: re-running it does a clean reinstall (removes, clears 
 ## Planning and Execution Flow
 
 <picture>
-  <img src="docs/flow.svg" alt="Planning and execution flow" width="860">
+  <img src="docs/flow.svg" alt="Planning and execution flow" width="810">
 </picture>
 
 | Step | What happens |
