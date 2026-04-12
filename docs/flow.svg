@@ -47,14 +47,14 @@
   <line x1="300" y1="338" x2="300" y2="368" stroke="#8b949e" stroke-width="1.5"/>
 
   <!-- Left branch -->
-  <line x1="300" y1="368" x2="110" y2="368" stroke="#8b949e" stroke-width="1.5"/>
-  <line x1="110" y1="368" x2="110" y2="396" stroke="#8b949e" stroke-width="1.5"/>
-  <polygon points="105,393 110,401 115,393" fill="#8b949e"/>
+  <line x1="300" y1="368" x2="111" y2="368" stroke="#8b949e" stroke-width="1.5"/>
+  <line x1="111" y1="368" x2="111" y2="396" stroke="#8b949e" stroke-width="1.5"/>
+  <polygon points="106,393 111,401 116,393" fill="#8b949e"/>
 
-  <!-- Right branch -->
-  <line x1="300" y1="368" x2="400" y2="368" stroke="#8b949e" stroke-width="1.5"/>
-  <line x1="400" y1="368" x2="400" y2="396" stroke="#8b949e" stroke-width="1.5"/>
-  <polygon points="395,393 400,401 405,393" fill="#8b949e"/>
+  <!-- Right branch (symmetric: same distance from center as left) -->
+  <line x1="300" y1="368" x2="489" y2="368" stroke="#8b949e" stroke-width="1.5"/>
+  <line x1="489" y1="368" x2="489" y2="396" stroke="#8b949e" stroke-width="1.5"/>
+  <polygon points="484,393 489,401 494,393" fill="#8b949e"/>
 
   <!-- ══════════ Superpowers ══════════ -->
   <rect x="16" y="402" width="190" height="80" rx="8" fill="#1c1c2e" stroke="#7c3aed" stroke-width="2" filter="url(#shadow)"/>
