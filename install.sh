@@ -215,6 +215,15 @@ EOCFG
 
 # ── uninstall ─────────────────────────────────────────────────────────────
 
+run_remote_uninstaller() {
+    local repo="$1" action="$2"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    gh repo clone "$repo" "${tmpdir}/repo" -- --quiet 2>/dev/null || { rm -rf "$tmpdir"; return 1; }
+    bash "${tmpdir}/repo/install.sh" "$action" 2>/dev/null
+    rm -rf "$tmpdir"
+}
+
 uninstall_plugin() {
     require_claude
 
@@ -224,28 +233,19 @@ uninstall_plugin() {
     clear_plugin_cache
     ok "Plugin removed."
 
-    # Remove plan-executor binary and daemon
     info "Removing plan-executor..."
-    plan-executor stop >/dev/null 2>&1 || true
-    for dir in "$HOME_BIN" "$LOCAL_BIN"; do
-        [ -f "$dir/plan-executor" ] && rm -f "$dir/plan-executor"
-    done
-    # Remove shell hook
-    for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
-        [ -f "$rc" ] || continue
-        if grep -qF "plan-executor ensure" "$rc" 2>/dev/null; then
-            sed -i.bak -e '/^# plan-executor$/d' -e '/plan-executor ensure/d' "$rc"
-            rm -f "${rc}.bak"
-        fi
-    done
-    ok "plan-executor removed. Data dir ~/.plan-executor left intact."
+    if run_remote_uninstaller "$PLAN_EXECUTOR_SLUG" "uninstall"; then
+        ok "plan-executor removed."
+    else
+        warn "Could not run upstream uninstaller. Remove manually: plan-executor stop; rm \$(which plan-executor)"
+    fi
 
-    # Remove sjv binary
     info "Removing sjv..."
-    for dir in "$HOME_BIN" "$LOCAL_BIN"; do
-        [ -f "$dir/sjv" ] && rm -f "$dir/sjv"
-    done
-    ok "sjv removed. Data dir ~/.sjv left intact."
+    if run_remote_uninstaller "$SJV_SLUG" "uninstall"; then
+        ok "sjv removed."
+    else
+        warn "Could not run upstream uninstaller. Remove manually: rm \$(which sjv)"
+    fi
 
     echo ""
     ok "Uninstalled. Restart Claude Code to apply changes."
