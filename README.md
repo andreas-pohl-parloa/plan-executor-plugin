@@ -71,3 +71,7 @@ After setup, `~/.plan-executor/config.json` contains a `remote_repo` entry:
 ```
 
 Re-run `plan-executor remote-setup` at any time to update the configuration.
+
+## Planning
+
+This plugin handles execution only. For brainstorming and plan creation, install the [Superpowers plugin](https://github.com/anthropics/claude-plugins-official) which provides `superpowers:brainstorming` and `superpowers:writing-plans`.
