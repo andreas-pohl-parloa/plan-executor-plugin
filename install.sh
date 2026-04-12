@@ -230,11 +230,11 @@ uninstall_plugin() {
     fi
 
     info "Removing sjv..."
-    if run_remote_uninstaller "$SJV_SLUG" "uninstall"; then
-        ok "sjv removed."
-    else
-        warn "Could not run upstream uninstaller. Remove manually: rm \$(which sjv)"
-    fi
+    for dir in "$HOME_BIN" "$LOCAL_BIN"; do
+        [ -f "$dir/sjv" ] && rm -f "$dir/sjv"
+    done
+    rm -rf "$HOME/.sjv" 2>/dev/null || true
+    ok "sjv removed."
 
     echo ""
     ok "Uninstalled. Restart Claude Code to apply changes."
