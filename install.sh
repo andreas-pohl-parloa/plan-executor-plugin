@@ -250,6 +250,18 @@ else
     install_plugin "${REPO_SLUG}"
 fi
 
+# Install alerter for macOS desktop notifications with custom icon
+if [ "$(uname -s)" = "Darwin" ]; then
+    if command -v alerter >/dev/null 2>&1; then
+        ok "alerter already installed."
+    elif command -v brew >/dev/null 2>&1; then
+        info "Installing alerter (macOS notifications)..."
+        brew install --quiet vjeantet/tap/alerter >/dev/null 2>&1 && ok "alerter installed." || warn "alerter install failed (notifications will use fallback)."
+    else
+        warn "Homebrew not found — skipping alerter. Notifications will use fallback."
+    fi
+fi
+
 # Install plan-executor binary
 info "Installing plan-executor binary..."
 pe_result="$(install_binary "plan-executor" "$PLAN_EXECUTOR_SLUG" "$HOME/.plan-executor/installed-version" "$HOME/.plan-executor")"
