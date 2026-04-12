@@ -213,7 +213,50 @@ EOCFG
     plan-executor daemon >/dev/null 2>&1 || true
 }
 
+# ── uninstall ─────────────────────────────────────────────────────────────
+
+uninstall_plugin() {
+    require_claude
+
+    info "Removing plugin..."
+    claude plugin uninstall "${PLUGIN_NAME}@${MARKETPLACE_NAME}" >/dev/null 2>&1 || true
+    claude plugin marketplace remove "${MARKETPLACE_NAME}" >/dev/null 2>&1 || true
+    clear_plugin_cache
+    ok "Plugin removed."
+
+    # Remove plan-executor binary and daemon
+    info "Removing plan-executor..."
+    plan-executor stop >/dev/null 2>&1 || true
+    for dir in "$HOME_BIN" "$LOCAL_BIN"; do
+        [ -f "$dir/plan-executor" ] && rm -f "$dir/plan-executor"
+    done
+    # Remove shell hook
+    for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+        [ -f "$rc" ] || continue
+        if grep -qF "plan-executor ensure" "$rc" 2>/dev/null; then
+            sed -i.bak -e '/^# plan-executor$/d' -e '/plan-executor ensure/d' "$rc"
+            rm -f "${rc}.bak"
+        fi
+    done
+    ok "plan-executor removed. Data dir ~/.plan-executor left intact."
+
+    # Remove sjv binary
+    info "Removing sjv..."
+    for dir in "$HOME_BIN" "$LOCAL_BIN"; do
+        [ -f "$dir/sjv" ] && rm -f "$dir/sjv"
+    done
+    ok "sjv removed. Data dir ~/.sjv left intact."
+
+    echo ""
+    ok "Uninstalled. Restart Claude Code to apply changes."
+}
+
 # ── main ──────────────────────────────────────────────────────────────────
+
+if [ "${1:-}" = "uninstall" ]; then
+    uninstall_plugin
+    exit 0
+fi
 
 # Determine plugin source
 if [ -f ".claude-plugin/marketplace.json" ] && [ -d ".git" ]; then
