@@ -108,17 +108,13 @@ install_binary() {
     latest="$(get_latest_version "$repo")"
 
     [ -z "$latest" ] && {
-        # Can't determine latest version — if binary exists, keep it
-        if command -v "$name" >/dev/null 2>&1; then
-            echo "exists"
-        else
-            echo "failed"
-        fi
+        if [ -f "$target" ]; then echo "exists"; else echo "failed"; fi
         return
     }
 
-    # Already installed and up to date
-    if command -v "$name" >/dev/null 2>&1 && [ -n "$installed" ] && [ "$installed" = "$latest" ]; then
+    # Already installed and up to date — check the target path specifically,
+    # not command -v which may find a stale cargo build elsewhere.
+    if [ -f "$target" ] && [ -n "$installed" ] && [ "$installed" = "$latest" ]; then
         echo "exists"
         return
     fi
@@ -129,19 +125,19 @@ install_binary() {
 
     if ! gh release download "v${latest}" --repo "$repo" --pattern "$asset" --dir "$tmpdir" >/dev/null 2>&1; then
         rm -rf "$tmpdir"
-        if command -v "$name" >/dev/null 2>&1; then echo "exists"; else echo "failed"; fi
+        if [ -f "$target" ]; then echo "exists"; else echo "failed"; fi
         return
     fi
 
     if ! unzip -q "$tmpdir/$asset" -d "$tmpdir" 2>/dev/null; then
         rm -rf "$tmpdir"
-        if command -v "$name" >/dev/null 2>&1; then echo "exists"; else echo "failed"; fi
+        if [ -f "$target" ]; then echo "exists"; else echo "failed"; fi
         return
     fi
 
     [ -f "$tmpdir/$name" ] || {
         rm -rf "$tmpdir"
-        if command -v "$name" >/dev/null 2>&1; then echo "exists"; else echo "failed"; fi
+        if [ -f "$target" ]; then echo "exists"; else echo "failed"; fi
         return
     }
 
