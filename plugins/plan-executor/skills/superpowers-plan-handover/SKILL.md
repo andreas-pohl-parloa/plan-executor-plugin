@@ -15,36 +15,66 @@ The initial plan input is: $ARGUMENTS
 ## Required outcome — Superpowers execution path
 
 1. Resolve the source Superpowers plan file.
-2. Ask the user which Superpowers executor to use (Subagent-Driven or Inline Execution).
-3. Report the handoff and stop.
+2. Run the reviewer team on the plan.
+3. Ask the user which Superpowers executor to use (Subagent-Driven or Inline Execution).
+4. Report the handoff and stop.
 
 ## Required outcome — Plan-Executor path
 
 1. Resolve the source Superpowers plan file.
-2. Ask about the JIRA ticket using the same approach as `my:plan`.
-3. Convert it into a plan file under `.my/plans/`.
-4. Preserve the existing plan title, goal, architecture, tech stack, and plan body as much as possible.
-5. Ensure the migrated plan contains these execution headers near the top of the file:
+2. Run the reviewer team on the plan.
+3. Ask about the JIRA ticket using the same approach as `my:plan`.
+4. Convert it into a plan file under `.my/plans/`.
+5. Preserve the existing plan title, goal, architecture, tech stack, and plan body as much as possible.
+6. Ensure the migrated plan contains these execution headers near the top of the file:
    - `**Status:** READY`
    - `**no-worktree:** [ ]`
    - `**no-pr:** [ ]`
    - `**draft-pr:** [ ]`
    - `**merge:** [ ]`
    - `**merge-admin:** [ ]`
-6. Offer these execution options after the migrated plan is written:
+7. Offer these execution options after the migrated plan is written:
    - Plan-Executor Interactive (in session with sub-agents)
    - Plan-Executor Local (on this machine)
    - Plan-Executor Remote (via GitHub Actions)
 
+## Plan review
+
+After resolving the source plan file, you MUST run the reviewer team on the plan before presenting execution mode choices.
+
+Invoke `plan-executor:run-reviewer-team` with the Skill tool using these inputs:
+
+- `plan_context` — the full resolved source plan path
+- `execution_outputs` — `"Plan document under pre-execution review. Review the plan for completeness, feasibility, clarity, security considerations, and architectural soundness. This is a plan review, not a code review — evaluate the plan's quality, not implementation artifacts."`
+- `changed_files` — the source plan file path
+- `language` — the primary language from the plan's tech stack (use `"markdown"` if no tech stack is specified)
+- `recipe_list` — relevant recipe skills based on the plan's tech stack (use an empty list if no matching recipes apply)
+- `prior_review_context` — `{}`
+
+After the reviewer team returns its report, present the findings and the triage summary to the user with `AskUserQuestion`:
+
+- Question: "The reviewer team has completed the plan review. How do you want to proceed?"
+- Options:
+  - `Proceed with execution` — Continue to execution mode selection
+  - `Stop and revise the plan` — End the handover so the plan can be updated
+
+If the user selects `Stop and revise the plan`, report the full review findings and stop. Do not continue to the execution mode decision.
+
+If the user selects `Proceed with execution`, continue to the execution mode decision below.
+
+Plan review always happens after source-plan resolution and before the execution mode decision.
+
+Skipping the plan review step is not allowed.
+
 ## Execution mode decision
 
-After resolving the source plan file, you MUST ask the user which execution mode to use before any migration or JIRA handling.
+After the plan review, you MUST ask the user which execution mode to use before any migration or JIRA handling.
 
 Use `AskUserQuestion` with:
 - Question: "How do you want to execute this plan?"
 - Options:
-  - `Superpowers execution` — Run directly via Superpowers skills (no migration)
   - `Plan-Executor` — Migrate the plan and run via plan-executor pipeline
+  - `Superpowers execution` — Run directly via Superpowers skills (no migration)
 
 ### Superpowers execution path
 
@@ -335,6 +365,8 @@ Do NOT invoke any skill. Do NOT wait for the job to finish.
 ## Constraints
 
 - Do NOT write implementation code.
+- Do NOT skip the plan review step. The reviewer team must review the plan before execution mode selection.
+- Do NOT present execution mode choices before the plan review is complete and the user has chosen to proceed.
 - Do NOT leave the migrated plan outside `.my/plans/` (Plan-Executor path only).
 - Do NOT omit the execution flags required by `my:plan` (Plan-Executor path only).
 - Do NOT keep the migrated plan in WIP state.
