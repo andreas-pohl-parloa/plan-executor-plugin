@@ -672,7 +672,20 @@ main() {
             has_conflicts_local=$(echo "$issues" | jq '.merge_conflicts.conflicting // false' 2>/dev/null || echo "false")
 
             if [[ "$has_new_threads" == "false" && "$has_code_issues" == "false" && "$has_conflicts_local" == "false" ]]; then
-                # All remaining issues are threads we've already attempted — avoid infinite loop
+                # All remaining issues are threads we've already attempted.
+                # But if we recently pushed, wait for checks to finish before declaring done —
+                # new failures may appear once CI runs on the new SHA.
+                if [[ $LAST_PUSH_EPOCH -gt 0 ]]; then
+                    local now_epoch elapsed_since_push
+                    now_epoch=$(date +%s)
+                    elapsed_since_push=$((now_epoch - LAST_PUSH_EPOCH))
+                    if [[ $elapsed_since_push -lt $MIN_BUGBOT_WAIT_SECS ]]; then
+                        local remaining=$((MIN_BUGBOT_WAIT_SECS - elapsed_since_push))
+                        echo "[$(date +%H:%M:%S)] No new issues, but last push was ${elapsed_since_push}s ago — waiting for CI/Bugbot (~${remaining}s remaining)..."
+                        sleep "$POLL_INTERVAL"
+                        continue
+                    fi
+                fi
                 echo "[$(date +%H:%M:%S)] All remaining unresolved threads were already attempted. Treating as done."
                 echo "[$(date +%H:%M:%S)] Unresolved thread IDs: ${current_thread_ids:-none}"
                 finalize_summary "$fix_count" "All checks passing (some review threads may require manual resolution)"
