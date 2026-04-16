@@ -343,15 +343,19 @@ Example:
 **add-plugins:** superpowers@claude-plugins-official, plan-executor@plan-executor, security@claudes-kitchen
 ```
 
-#### Push all local commits before launching
+#### Ensure HEAD is at origin/main
 
-The remote runner clones the repo at the current HEAD. If local commits have not been pushed, the runner will fail with `fatal: unable to read tree`.
+The plan-executor binary reads `git rev-parse HEAD` to determine the target ref for remote execution. The remote runner clones the target repo at that SHA, so it must exist on the remote.
 
-Before calling `plan-executor execute`, ensure HEAD is available on the remote:
+Plan files are local-only working files and MUST NOT be committed to git. Instead, ensure HEAD points to the latest `origin/main` so the runner uses the clean remote state.
 
-1. Run `git log @{upstream}..HEAD --oneline 2>/dev/null` to check for unpushed commits.
-2. If there are unpushed commits, run `git push` and wait for it to succeed. If the push fails, stop and print the error.
-3. Only after the push succeeds (or no unpushed commits exist), proceed to launch.
+Before calling `plan-executor execute`:
+
+1. Run `git fetch origin main`.
+2. Verify you are on the `main` branch. If not, run `git checkout main`.
+3. Verify `git rev-parse HEAD` equals `git rev-parse origin/main`. If they differ (local-only commits exist), stop and ask the user how to proceed — do NOT push automatically.
+
+Do NOT commit plan files (`.my/plans/` or `docs/superpowers/plans/`) to git. Do NOT push local commits just to make plan files available to the runner — the plan content is uploaded separately by the plan-executor binary.
 
 Run `plan-executor execute <migrated-plan-path>` via the Bash tool.
 
@@ -375,6 +379,7 @@ Do NOT invoke any skill. Do NOT wait for the job to finish.
 - Do NOT skip the execution-flag questions (Plan-Executor path only).
 - Do NOT migrate the plan when the user selects Superpowers execution.
 - Do NOT ask about JIRA or execution flags when the user selects Superpowers execution.
+- Do NOT commit or push plan files to git. Plans under `.my/plans/` and `docs/superpowers/plans/` are local working files only. Remote execution uses the latest `origin/main` hash — plan content is uploaded separately by the plan-executor binary.
 
 ## Final response pattern
 
