@@ -10,6 +10,8 @@ set -euo pipefail
 #   --workdir <path>       Working directory (repo root or worktree)
 #   --summary-file <path>  Path to write the fix summary
 #   --log-file <path>      Path to write formatted Claude output log
+#   --merge                (ignored — merge is handled by the skill, not this script)
+#   --merge-admin          (ignored — merge is handled by the skill, not this script)
 
 POLL_INTERVAL=15
 MAX_CONSECUTIVE_CLEAN=3   # require N consecutive clean polls before declaring done
@@ -67,6 +69,7 @@ parse_args() {
             --workdir) WORKDIR="$2"; shift 2 ;;
             --summary-file) SUMMARY_FILE="$2"; shift 2 ;;
             --log-file) LOG_FILE="$2"; shift 2 ;;
+            --merge|--merge-admin) shift ;;  # accepted but ignored — merge is handled by the skill
             *) echo "Unknown argument: $1" >&2; exit 1 ;;
         esac
     done
