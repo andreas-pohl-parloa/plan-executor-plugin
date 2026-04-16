@@ -219,7 +219,16 @@ For each other issue type:
 - Download logs: `gh api repos/{owner}/{repo}/actions/jobs/{JOB_ID}/logs`
 - For Semgrep: download the report artifact
 - For SonarCloud: check the bot comment via `gh pr view {PR} --json comments --jq '.comments[] | select(.author.login == "sonarqubecloud") | .body'`
-- Fix the code
+- **Before fixing, determine if the failure is related to this PR's changes.** Check whether the failing test or check touches code changed by this PR. Compare against the base branch:
+  ```bash
+  # Get files changed by this PR
+  gh pr diff {PR} --name-only
+  # Compare with the failure — does it reference any of these files/modules?
+  ```
+  If the failure is clearly unrelated (e.g. an e2e test that fails on the base branch too, a test for a completely different module), do NOT attempt to fix it. Instead, report it as unrelated and exit immediately:
+  - Print: `UNRELATED FAILURE: <check-name> — <reason it is unrelated>`
+  - Do NOT commit, do NOT push, just exit. The monitor will detect the no-progress and stop.
+- If the failure IS related, fix the code
 
 **Bugbot comments (triage before fixing):**
 
@@ -265,3 +274,5 @@ For every Bugbot comment or review thread you addressed or triaged:
 - Do NOT assume a failing check is "pre-existing" without evidence from the target branch
 - Do NOT open any URLs in a browser (Playwright or WebFetch) — use `gh` CLI or the GitHub MCP tools exclusively for all GitHub operations (PR views, check logs, comments, workflow runs)
 - Do NOT leave review threads unresolved after fixing — the monitor will re-trigger on the same threads if they stay open
+- Do NOT spend time fixing failures unrelated to this PR's changes — check `gh pr diff --name-only` against the failure, and if there is no overlap, exit immediately without committing
+- Do NOT run tests repeatedly hoping an unrelated flaky test will pass — if a test fails and is unrelated, report it and exit

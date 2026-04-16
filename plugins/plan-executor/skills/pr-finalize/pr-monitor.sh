@@ -20,6 +20,8 @@ MIN_BUGBOT_WAIT_SECS=360  # wait at least 6 min after last push before counting 
 MAX_INFRA_RETRIES=3       # max times to re-run a failing infra check before giving up on it
 MAX_FIX_SESSIONS=20       # max fix sessions before giving up (prevents infinite loops)
 MAX_POLL_ITERATIONS=120   # max poll iterations (~30 min at 15s interval) before giving up
+MAX_NO_PROGRESS=2         # max consecutive fix sessions that produce no new push before giving up
+                          # (if Claude can't fix it after 2 tries, it's likely unrelated)
 
 OWNER=""
 REPO=""
@@ -418,9 +420,11 @@ launch_fix_session() {
         echo ""
     } >> "$SUMMARY_FILE"
 
-    # Startup timeout: how long to wait for the FIRST line of output before giving up.
-    # Once streaming starts, the timeout is cancelled and the session runs to completion.
-    local FIX_STARTUP_TIMEOUT_SECS=120  # 2 min to produce first output line
+    # Two timeouts protect against hangs:
+    #   1. Startup timeout: kill if no output arrives at all (API down, auth failure).
+    #   2. Session timeout: kill if the overall session runs too long (agent stuck in a loop).
+    local FIX_STARTUP_TIMEOUT_SECS=120   # 2 min to produce first output line
+    local FIX_SESSION_TIMEOUT_SECS=1800  # 30 min hard cap per fix session
     local FIX_MAX_RETRIES=3
     local attempt=0
     local exit_code=1
@@ -428,7 +432,7 @@ launch_fix_session() {
     while [[ $attempt -lt $FIX_MAX_RETRIES ]]; do
         attempt=$((attempt + 1))
         local attempt_label="#${fix_num} (attempt ${attempt}/${FIX_MAX_RETRIES})"
-        echo "  [run] Fix session ${attempt_label} (startup timeout ${FIX_STARTUP_TIMEOUT_SECS}s)"
+        echo "  [run] Fix session ${attempt_label} (startup ${FIX_STARTUP_TIMEOUT_SECS}s, hard cap ${FIX_SESSION_TIMEOUT_SECS}s)"
 
         # Run claude in background, pipe through a watchdog wrapper that cancels the
         # startup timer once the first line of output arrives.
@@ -436,6 +440,7 @@ launch_fix_session() {
         fifo=$(mktemp -u /tmp/pr-fix-fifo-XXXXX)
         mkfifo "$fifo"
         local timed_out=0
+        local session_timed_out=0
 
         # Start claude, writing output to the fifo
         claude -p "$prompt" \
@@ -445,12 +450,17 @@ launch_fix_session() {
         > "$fifo" &
         local claude_pid=$!
 
-        # Watchdog: kill claude if no output arrives within startup timeout
+        # Watchdog 1 — startup: kill claude if no output arrives within startup timeout
         (sleep "$FIX_STARTUP_TIMEOUT_SECS" && kill "$claude_pid" 2>/dev/null && echo "WATCHDOG_FIRED" > "${fifo}.timeout") &
         local watchdog_pid=$!
-        disown "$watchdog_pid"  # remove from job table so bash doesn't print "Terminated" on kill
+        disown "$watchdog_pid"
 
-        # Read from fifo; kill watchdog on first line.
+        # Watchdog 2 — session: hard cap on total session duration
+        (sleep "$FIX_SESSION_TIMEOUT_SECS" && kill "$claude_pid" 2>/dev/null && echo "SESSION_TIMEOUT" > "${fifo}.session_timeout") &
+        local session_watchdog_pid=$!
+        disown "$session_watchdog_pid"
+
+        # Read from fifo; kill startup watchdog on first line.
         # NOTE: the while loop runs in a pipeline subshell, so variable writes
         # don't propagate to the parent.  Use the watchdog's own sentinel file
         # (written only when the watchdog actually fires) to detect timeouts.
@@ -468,15 +478,23 @@ launch_fix_session() {
 
         wait "$claude_pid" 2>/dev/null || true
         kill "$watchdog_pid" 2>/dev/null || true
+        kill "$session_watchdog_pid" 2>/dev/null || true
 
-        # Watchdog writes this file only when it fires (sleep completed → no output).
-        # If it doesn't exist, the session produced output and we killed the watchdog.
+        # Check which watchdog fired (if any)
         if [[ -f "${fifo}.timeout" ]]; then
             timed_out=1
         fi
-        rm -f "$fifo" "${fifo}.timeout"
+        if [[ -f "${fifo}.session_timeout" ]]; then
+            session_timed_out=1
+        fi
+        rm -f "$fifo" "${fifo}.timeout" "${fifo}.session_timeout"
 
-        if [[ $timed_out -eq 1 ]]; then
+        if [[ $session_timed_out -eq 1 ]]; then
+            echo "  [timeout] Fix session ${attempt_label}: hard cap of ${FIX_SESSION_TIMEOUT_SECS}s reached — agent likely stuck"
+            echo "**Result:** Session timeout (${FIX_SESSION_TIMEOUT_SECS}s hard cap)" >> "$SUMMARY_FILE"
+            echo "" >> "$SUMMARY_FILE"
+            return 0
+        elif [[ $timed_out -eq 1 ]]; then
             echo "  [timeout] Fix session ${attempt_label}: no output in ${FIX_STARTUP_TIMEOUT_SECS}s"
             if [[ $attempt -lt $FIX_MAX_RETRIES ]]; then
                 echo "  [retry] Retrying..."
@@ -527,6 +545,7 @@ main() {
     local poll_count=0
     local infra_retry_count=0  # how many times we've tried to re-run infra checks
     local seen_thread_ids=""   # space-separated list of thread IDs already attempted
+    local no_progress_count=0  # consecutive fix sessions that didn't push a new commit
 
     # Temp file for infra failure JSON passed from collect_issues
     INFRA_TMP=$(mktemp /tmp/pr-monitor-infra-XXXXX.json)
@@ -693,9 +712,27 @@ main() {
                 PUSH_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
                 LAST_PUSH_EPOCH=$(date +%s)
                 infra_retry_count=0  # reset infra retries after a code push
+                no_progress_count=0  # reset — the fix produced a new commit
                 # Reset seen threads when code changes — new threads may be different
                 seen_thread_ids=""
                 echo "[$(date +%H:%M:%S)] Fix pushed. Will wait ${MIN_BUGBOT_WAIT_SECS}s for Bugbot before counting clean polls."
+            else
+                no_progress_count=$((no_progress_count + 1))
+                echo "[$(date +%H:%M:%S)] Fix session produced no new commit (no-progress $no_progress_count/$MAX_NO_PROGRESS)"
+                if [[ $no_progress_count -ge $MAX_NO_PROGRESS ]]; then
+                    echo ""
+                    echo "╔══════════════════════════════════════════════════════════════╗"
+                    echo "║  PR FINALIZATION STOPPED — FAILURES LIKELY UNRELATED         ║"
+                    echo "╚══════════════════════════════════════════════════════════════╝"
+                    echo ""
+                    echo "$MAX_NO_PROGRESS consecutive fix sessions failed to produce a commit."
+                    echo "The failing checks are likely unrelated to this PR's changes."
+                    echo ""
+                    echo "Remaining issues:"
+                    echo "$issues" | jq .
+                    finalize_summary "$fix_count" "BLOCKED — $MAX_NO_PROGRESS consecutive fix sessions produced no commit (failures likely unrelated to PR)"
+                    exit 5
+                fi
             fi
         fi
 
