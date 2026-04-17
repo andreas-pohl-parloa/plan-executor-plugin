@@ -64,6 +64,7 @@ Build one prompt per reviewer. Each prompt must include:
 - language and recipe context
 - prior review context: already-fixed findings, rejected findings, deferred findings
 - the reporting contract below
+- the subprocess hygiene block below (reviewers that run commands must not hang the orchestrator)
 
 **Security reviewer prompt exception:** The security reviewer prompt (index 4) MUST begin with `/security:big-toni` as the first line, followed by the review scope and changed files. It does NOT receive the standard recipe list or language context — `security:big-toni` determines its own methodology. It MUST still receive the prior review context and the reporting contract below so it does not re-raise already-resolved findings.
 
@@ -76,6 +77,16 @@ Build one prompt per reviewer. Each prompt must include:
 > - `DEFERRED` — real but intentionally left unresolved (must state reason)
 >
 > Do not re-raise findings already marked fixed, rejected, or deferred in prior review context unless you have new evidence that invalidates the prior decision. Do not make code changes directly.
+
+**Subprocess hygiene block to include in every reviewer prompt (verbatim — identical across all plan-executor non-interactive skills):**
+
+> **Subprocess hygiene (MANDATORY — the daemon watchdog kills the job after prolonged silence).**
+>
+> Any Bash command that starts a long-running or backgrounded process MUST follow these rules:
+> 1. Wrap every invocation in `timeout N` (N ≤ 600 seconds). Example: `timeout 120 ./run-tests`.
+> 2. Never call bare `wait "$PID"` on a backgrounded process. Use `timeout N wait "$PID"` or a bounded `kill -0 "$PID"` poll with a max iteration count instead.
+> 3. Escalate signals on cleanup: `kill -TERM "$PID" 2>/dev/null; sleep 1; kill -KILL "$PID" 2>/dev/null || true`. `SIGTERM` alone may be ignored.
+> 4. Before exiting any script that spawned children, reap the group: `pkill -P $$ 2>/dev/null || true`.
 
 ## Execution
 

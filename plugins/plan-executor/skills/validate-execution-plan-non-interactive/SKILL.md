@@ -91,6 +91,14 @@ The validator prompt must:
 - include prior validation notes when rerunning after failed attempts
 - tell the validator to compare plan requirements against the actual implementation only
 - tell the validator not to modify files
+- include the subprocess hygiene block below verbatim (identical across all plan-executor non-interactive skills), because validators frequently run verification commands that must not hang the orchestrator:
+  > **Subprocess hygiene (MANDATORY — the daemon watchdog kills the job after prolonged silence).**
+  >
+  > Any Bash command that starts a long-running or backgrounded process MUST follow these rules:
+  > 1. Wrap every invocation in `timeout N` (N ≤ 600 seconds). Example: `timeout 120 ./run-tests`.
+  > 2. Never call bare `wait "$PID"` on a backgrounded process. Use `timeout N wait "$PID"` or a bounded `kill -0 "$PID"` poll with a max iteration count instead.
+  > 3. Escalate signals on cleanup: `kill -TERM "$PID" 2>/dev/null; sleep 1; kill -KILL "$PID" 2>/dev/null || true`. `SIGTERM` alone may be ignored.
+  > 4. Before exiting any script that spawned children, reap the group: `pkill -P $$ 2>/dev/null || true`.
 - require a deterministic report using this structure:
 
 ```text
@@ -136,6 +144,14 @@ Every validation-fix prompt must:
 - state `Fix ONLY the issue described here.`
 - forbid unrelated refactors or opportunistic cleanup
 - require the sub-agent to report files changed and any follow-up verification it ran
+- include the subprocess hygiene block below verbatim (identical across all plan-executor non-interactive skills):
+  > **Subprocess hygiene (MANDATORY — the daemon watchdog kills the job after prolonged silence).**
+  >
+  > Any Bash command that starts a long-running or backgrounded process MUST follow these rules:
+  > 1. Wrap every invocation in `timeout N` (N ≤ 600 seconds). Example: `timeout 120 ./run-tests`.
+  > 2. Never call bare `wait "$PID"` on a backgrounded process. Use `timeout N wait "$PID"` or a bounded `kill -0 "$PID"` poll with a max iteration count instead.
+  > 3. Escalate signals on cleanup: `kill -TERM "$PID" 2>/dev/null; sleep 1; kill -KILL "$PID" 2>/dev/null || true`. `SIGTERM` alone may be ignored.
+  > 4. Before exiting any script that spawned children, reap the group: `pkill -P $$ 2>/dev/null || true`.
 
 ## Validation attempt loop
 

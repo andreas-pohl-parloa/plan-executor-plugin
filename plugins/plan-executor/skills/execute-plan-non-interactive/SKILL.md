@@ -83,9 +83,20 @@ Every emitted implementation prompt file MUST begin with a standard agent preamb
 4. At the end of the prompt file, instruct the agent to report back:
    > After completing the task, report: all files you created or modified, any exported types or function signatures later tasks may depend on, and the result of any verification commands you ran.
 
+5. Include the standard **Subprocess hygiene** block below verbatim so the sub-agent cannot hang the job on a runaway process. The same block appears across all non-interactive plan-executor skills — emit it unchanged:
+   > **Subprocess hygiene (MANDATORY — the daemon watchdog kills the job after prolonged silence).**
+   >
+   > Any Bash command that starts a long-running or backgrounded process MUST follow these rules:
+   > 1. Wrap every invocation in `timeout N` (N ≤ 600 seconds). Example: `timeout 120 ./run-tests`.
+   > 2. Never call bare `wait "$PID"` on a backgrounded process. Use `timeout N wait "$PID"` or a bounded `kill -0 "$PID"` poll with a max iteration count instead.
+   > 3. Escalate signals on cleanup: `kill -TERM "$PID" 2>/dev/null; sleep 1; kill -KILL "$PID" 2>/dev/null || true`. `SIGTERM` alone may be ignored.
+   > 4. Before exiting any script that spawned children, reap the group: `pkill -P $$ 2>/dev/null || true`.
+
+   For verification commands that require a local server, prefer `timeout 30 bash -c 'until curl -sf http://localhost:PORT/health; do sleep 1; done'` over indefinite `wait`, and tear the server down with the escalate-and-reap pattern above. (This guidance is contextual; the four numbered rules above are the normative block.)
+
 The preamble MUST be present even when the task body already mentions which skills to load. The preamble makes intent unambiguous for an agent that has no prior context.
 
-For non-implementation prompt files (review, validation, integration), include the role and working directory lines but omit the code-standards recipe loading instruction unless the helper skill that generates those files specifies it.
+For non-implementation prompt files (review, validation, integration), include the role, working directory, and **Subprocess hygiene** lines; omit the code-standards recipe loading instruction unless the helper skill that generates those files specifies it.
 
 # PHASE 3: WAVE-BASED EXECUTION
 

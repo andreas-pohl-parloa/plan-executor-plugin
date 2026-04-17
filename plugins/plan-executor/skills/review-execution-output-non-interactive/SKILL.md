@@ -60,6 +60,14 @@ If any required input is missing, unreadable, or inconsistent with persisted sta
    - If N unresolved `FIX_REQUIRED` issues exist, emit N fix handoff lines as a single batch.
    - Each fix prompt must contain only the single `FIX_REQUIRED` finding it is responsible for, the exact files in scope, and required verification commands.
    - Carry `VERIFIED_FIX`, `REJECTED`, and `DEFERRED` items forward as context in every fix prompt so fix agents know what has already been handled.
+   - Every fix prompt MUST include the subprocess hygiene block below verbatim (identical across all plan-executor non-interactive skills), so verification commands cannot hang the orchestrator:
+     > **Subprocess hygiene (MANDATORY — the daemon watchdog kills the job after prolonged silence).**
+     >
+     > Any Bash command that starts a long-running or backgrounded process MUST follow these rules:
+     > 1. Wrap every invocation in `timeout N` (N ≤ 600 seconds). Example: `timeout 120 ./run-tests`.
+     > 2. Never call bare `wait "$PID"` on a backgrounded process. Use `timeout N wait "$PID"` or a bounded `kill -0 "$PID"` poll with a max iteration count instead.
+     > 3. Escalate signals on cleanup: `kill -TERM "$PID" 2>/dev/null; sleep 1; kill -KILL "$PID" 2>/dev/null || true`. `SIGTERM` alone may be ignored.
+     > 4. Before exiting any script that spawned children, reap the group: `pkill -P $$ 2>/dev/null || true`.
 
 4. **Own the review cap and deterministic stop behavior.**
    - Maximum review attempts per Phase 5 run: 3.
