@@ -40,9 +40,18 @@ The initial plan input is: $ARGUMENTS
 
 ## Plan review
 
-After resolving the source plan file, you MUST run the reviewer team on the plan before presenting execution mode choices.
+After resolving the source plan file, ask the user whether to run the reviewer team before presenting execution mode choices. The reviewer team can take several minutes to complete, so it is offered as an opt-in step.
 
-Invoke `plan-executor:run-reviewer-team` with the Skill tool using these inputs:
+Use `AskUserQuestion` with:
+
+- Question: "Run the plan reviewer team? It can take several minutes."
+- Options:
+  - `Run reviewer team` — Execute the full reviewer team against the plan
+  - `Skip review` — Proceed directly to the execution mode decision
+
+If the user selects `Skip review`, skip the reviewer invocation and the post-review triage question, and continue directly to the execution mode decision.
+
+If the user selects `Run reviewer team`, invoke `plan-executor:run-reviewer-team` with the Skill tool using these inputs:
 
 - `plan_context` — the full resolved source plan path
 - `execution_outputs` — `"Plan document under pre-execution review. Review the plan for completeness, feasibility, clarity, security considerations, and architectural soundness. This is a plan review, not a code review — evaluate the plan's quality, not implementation artifacts."`
@@ -62,9 +71,9 @@ If the user selects `Stop and revise the plan`, report the full review findings 
 
 If the user selects `Proceed with execution`, continue to the execution mode decision below.
 
-Plan review always happens after source-plan resolution and before the execution mode decision.
+The plan review gate always happens after source-plan resolution and before the execution mode decision. The user's choice determines whether the reviewer team runs.
 
-Skipping the plan review step is not allowed.
+Skipping the plan review gate question is not allowed. Skipping the reviewer team itself is only allowed when the user explicitly selects `Skip review`.
 
 ## Execution mode decision
 
@@ -369,8 +378,9 @@ Do NOT invoke any skill. Do NOT wait for the job to finish.
 ## Constraints
 
 - Do NOT write implementation code.
-- Do NOT skip the plan review step. The reviewer team must review the plan before execution mode selection.
-- Do NOT present execution mode choices before the plan review is complete and the user has chosen to proceed.
+- Do NOT skip the plan review gate question. The user must be asked whether to run the reviewer team before execution mode selection.
+- Do NOT run the reviewer team when the user selects `Skip review`.
+- Do NOT present execution mode choices before the plan review gate has been answered, and — if the reviewer ran — the user has chosen to proceed.
 - Do NOT leave the migrated plan outside `.my/plans/` (Plan-Executor path only).
 - Do NOT omit the execution flags required by `my:plan` (Plan-Executor path only).
 - Do NOT keep the migrated plan in WIP state.
