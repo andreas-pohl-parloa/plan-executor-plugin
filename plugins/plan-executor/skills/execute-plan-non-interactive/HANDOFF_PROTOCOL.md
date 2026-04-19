@@ -50,6 +50,7 @@ Rules:
 - `can-fail: true` marks the sub-agent as optional. If omitted, the agent is required.
 - A required agent that exits non-zero or violates the handoff protocol fails the job.
 - A can-fail agent that exits non-zero or violates the handoff protocol is skipped; the job continues without its output.
+- **After emitting the last `call sub-agent` line in a batch, the turn MUST end immediately.** Do not write any further assistant text, thinking, tool calls, or `# output sub-agent <N>:` blocks in the same turn. The continuation payload is produced exclusively by the external executor on resume. Emitting `# output sub-agent <N>:` in the same turn as the handoff lines is a protocol violation — the executor detects it, kills the session, and fails the job.
 
 ## 4. Prompt-file rules
 

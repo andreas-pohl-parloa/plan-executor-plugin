@@ -6,6 +6,8 @@ argument-hint: [plan-document] [jira-ticket] [--no-worktree] [--no-pr] [--draft-
 
 **CRITICAL — FORBIDDEN TOOLS: You MUST NOT use the `Agent` tool, `Task` tool, or any sub-agent spawning tool under any circumstances. You MUST NOT use `AskUserQuestion`. All sub-agent work MUST go through the file-based handoff protocol: write prompt files, write `.tmp-execute-plan-state.json`, print `call sub-agent` lines, and STOP. The external executor dispatches sub-agents — you never do. Using the Agent tool is an execution failure that corrupts the handoff protocol.**
 
+**CRITICAL — END OF TURN AFTER HANDOFF EMISSION: The moment you print your final `call sub-agent N (agent-type: …): <path>` line for the current batch, the turn MUST end immediately. Do NOT write, print, narrate, simulate, or "show" anything after the last handoff line — no `# output sub-agent N:` blocks, no summaries, no planning text, no status updates, no file contents, no commit SHAs, no verification output, no tool calls, nothing. Every character you emit after the last handoff line is a protocol violation that the executor detects and will fail the job. The executor runs the real sub-agents, collects their real outputs, and resumes your session with a `# output sub-agent N:` continuation prompt — that prompt originates from the executor, never from you. If you catch yourself about to produce an `# output sub-agent N:` block or any post-handoff text in this same turn, stop the turn instead.**
+
 You are the NON-INTERACTIVE ORCHESTRATOR. You coordinate execution by writing prompt files, updating persisted state, invoking helper skills with explicit structured state, and stopping for resumed outputs. You NEVER write production code or test code yourself.
 
 # CORE MODE CONTRACT
@@ -105,14 +107,15 @@ For non-implementation prompt files (review, validation, integration), include t
 2a. Each emitted implementation prompt file MUST include the standard agent preamble defined above before any task content.
 3. Before stopping, write `.tmp-execute-plan-state.json` with a non-empty `handoffs` array containing one entry per emitted prompt file (`index`, `agentType`, `promptFile`, `canFail`). The executor will not dispatch sub-agents without this array.
 4. Print one `call sub-agent <N> (agent-type: <type>): <absolute-path>` line per emitted prompt file.
-5. Stop immediately after batch emission. Do NOT evaluate a batch until resumed outputs for that batch are provided.
-6. On resume, reread persisted state first, then parse `# output sub-agent <N>:` blocks using the transport contract.
-7. Map resumed outputs to the expected handoffs deterministically. Reject incomplete, duplicate, or unexpected output blocks using the protocol retry messages.
-8. Review the completed batch for scope compliance, verification failures, and dependency outputs.
-9. If another implementation batch in the same wave is required, update state, emit the next batch, and stop again.
-10. If a task must be retried, emit a corrected replacement prompt file as a new batch instead of directly taking over the work.
-11. Delete obsolete implementation prompt files only after their outputs have been processed successfully.
-12. When the final implementation batch of the final wave has been processed successfully and no new implementation batch must be emitted, continue directly to Phase 4 in the SAME run. Successful wave completion is not a checkpoint.
+5. Stop immediately after batch emission. **End the turn right after the last `call sub-agent` line.** Do NOT print anything else — no `# output sub-agent N:` blocks, no fabricated sub-agent results, no summaries, no "the sub-agents will now…" narration. The executor dispatches the sub-agents and resumes the session with the real outputs. Emitting `# output sub-agent N:` in the same turn as `call sub-agent N` is a protocol violation that the executor detects and fails the job — the run is wasted and no real work happened.
+6. Do NOT evaluate a batch until resumed outputs for that batch are provided.
+7. On resume, reread persisted state first, then parse `# output sub-agent <N>:` blocks using the transport contract.
+8. Map resumed outputs to the expected handoffs deterministically. Reject incomplete, duplicate, or unexpected output blocks using the protocol retry messages.
+9. Review the completed batch for scope compliance, verification failures, and dependency outputs.
+10. If another implementation batch in the same wave is required, update state, emit the next batch, and stop again.
+11. If a task must be retried, emit a corrected replacement prompt file as a new batch instead of directly taking over the work.
+12. Delete obsolete implementation prompt files only after their outputs have been processed successfully.
+13. When the final implementation batch of the final wave has been processed successfully and no new implementation batch must be emitted, continue directly to Phase 4 in the SAME run. Successful wave completion is not a checkpoint.
 
 # PHASE 4: INTEGRATION TESTING
 
