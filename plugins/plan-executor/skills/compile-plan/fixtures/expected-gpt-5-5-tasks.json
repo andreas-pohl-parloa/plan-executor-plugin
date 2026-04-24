@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "plan": {
+    "goal": "Add OpenAI GPT-5.5 as a first-class supported model, retire the `codex-latest` alias, and make `gpt-5.5` the default value of `DEFAULT_FALLBACK_CHAIN` so Anthropic sessions fail over to it out of the box. Preserve backward compatibility for users with `codex-latest` already persisted in config.",
+    "type": "feature",
+    "jira": "CCP-0",
+    "target_repo": null,
+    "target_branch": null,
+    "flags": {
+      "merge": true,
+      "merge_admin": false,
+      "skip_pr": false,
+      "skip_code_review": false,
+      "no_worktree": false,
+      "draft_pr": false
+    }
+  },
+  "waves": [
+    {
+      "id": 1,
+      "task_ids": ["1", "2", "3", "7"],
+      "depends_on": [],
+      "kind": "implementation"
+    },
+    {
+      "id": 2,
+      "task_ids": ["4", "5"],
+      "depends_on": [1],
+      "kind": "implementation"
+    },
+    {
+      "id": 3,
+      "task_ids": ["6"],
+      "depends_on": [2],
+      "kind": "implementation"
+    },
+    {
+      "id": 4,
+      "task_ids": ["8"],
+      "depends_on": [3],
+      "kind": "implementation"
+    }
+  ],
+  "tasks": {
+    "1": {
+      "prompt_file": "tasks/task-1.md",
+      "agent_type": "claude",
+      "can_fail": false,
+      "description": "TDD: add gpt-5.5 pricing entry ($5/$30/M, $0.50 cache) to default_pricing_table in src/config/pricing.rs."
+    },
+    "2": {
+      "prompt_file": "tasks/task-2.md",
+      "agent_type": "claude",
+      "can_fail": false,
+      "description": "TDD: add gpt-5.5 entry (1M context window) to MODEL_CONTEXT_WINDOWS in src/config/models.rs."
+    },
+    "3": {
+      "prompt_file": "tasks/task-3.md",
+      "agent_type": "claude",
+      "can_fail": false,
+      "description": "TDD: add soft-migration shim in resolve_fallback_chain that rewrites legacy codex-latest entries to gpt-5.5 with a one-time deprecation warning."
+    },
+    "4": {
+      "prompt_file": "tasks/task-4.md",
+      "agent_type": "claude",
+      "can_fail": false,
+      "description": "Switch DEFAULT_FALLBACK_CHAIN constant to gpt-5.5 and update the three affected test fixtures in src/config/mod.rs."
+    },
+    "5": {
+      "prompt_file": "tasks/task-5.md",
+      "agent_type": "claude",
+      "can_fail": false,
+      "description": "Remove the codex-latest alias surface (const, static, functions, tests, doc) from src/config/models.rs; build will break until Task 6."
+    },
+    "6": {
+      "prompt_file": "tasks/task-6.md",
+      "agent_type": "claude",
+      "can_fail": false,
+      "description": "Update callers of removed codex-latest symbols in src/proxy/server.rs, src/proxy/commands.rs, src/cli/status.rs, src/proxy/session.rs; then full build + test + commit."
+    },
+    "7": {
+      "prompt_file": "tasks/task-7.md",
+      "agent_type": "claude",
+      "can_fail": false,
+      "description": "Update README.md: replace codex-latest references with gpt-5.5 across commands, tables, status output, config, and env-var docs."
+    },
+    "8": {
+      "prompt_file": "tasks/task-8.md",
+      "agent_type": "claude",
+      "can_fail": false,
+      "description": "End-to-end spot-check against isolated test proxy on port 9001: verify fallbackChain default, models table entry, and soft-migration deprecation warning."
+    }
+  }
+}
