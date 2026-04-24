@@ -1,6 +1,6 @@
 ---
 name: plan-executor:run-reviewer-team-non-interactive
-description: "EXECUTOR ONLY — do NOT use in direct user conversations or interactive sessions. Called exclusively by plan-executor:execute-plan-non-interactive and plan-executor:review-execution-output-non-interactive orchestrators. For interactive reviewer runs use plan-executor:run-reviewer-team instead."
+description: "EXECUTOR ONLY — do NOT use in direct user conversations or interactive sessions. Called exclusively by plan-executor:execute-plan-non-interactive and plan-executor:review-execution-output-non-interactive orchestrators. Launches Claude + Codex + Gemini + Security reviewers (security:big-toni when available, plan-executor:lite-security-reviewer as fallback). For interactive reviewer runs use plan-executor:run-reviewer-team instead."
 ---
 
 **CRITICAL — FORBIDDEN TOOLS: You MUST NOT use the `Agent` tool, `Task` tool, or any sub-agent spawning tool under any circumstances. You MUST NOT use `AskUserQuestion`. All sub-agent work MUST go through the file-based handoff protocol: write prompt files, update state, print `call sub-agent` lines, and STOP. The external executor dispatches sub-agents — you never do. Using the Agent tool is an execution failure that corrupts the handoff protocol.**
@@ -41,9 +41,63 @@ The frozen reviewer set for every invocation is exactly four reviewers:
 1. **Claude** — handoff type `claude` — **required** (job fails if this reviewer fails)
 2. **Codex** — handoff type `codex` — **can-fail** (job continues without output if this reviewer fails)
 3. **Gemini** — handoff type `gemini` — **can-fail** (job continues without output if this reviewer fails)
-4. **Security** — handoff type `claude`, uses `security:big-toni` — **required** (job fails if this reviewer fails)
+4. **Security** — handoff type `claude`. Skill selection follows "Security reviewer skill selection" below. **required** (job fails if this reviewer fails)
 
-Reducing the set below four or replacing a reviewer with a generic fallback is forbidden. If any reviewer prompt file cannot be written, return `status: blocked` with the reason in `notes`.
+Reducing the set below four or replacing a reviewer with a generic (non-security) fallback is forbidden. If any reviewer prompt file cannot be written, return `status: blocked` with the reason in `notes`.
+
+The security reviewer skill is the one documented substitution point: when `security:big-toni` is not available, `plan-executor:lite-security-reviewer` is used instead. Both skills satisfy the security slot — neither is a "generic fallback".
+
+## Security reviewer skill selection
+
+Before writing the security reviewer prompt file, decide which skill its slash-command entry line will invoke.
+
+1. Check whether `security:big-toni` appears in the current session's available-skills list (the list provided in system-reminders by the harness).
+2. If `security:big-toni` is present, the security prompt file MUST begin with `/security:big-toni` as the first line.
+3. If `security:big-toni` is NOT present, the security prompt file MUST begin with `/plan-executor:lite-security-reviewer` as the first line. Record this substitution in the run's `notes` (e.g. `"security reviewer: lite fallback (security:big-toni not installed)"`).
+4. If neither skill is available, return `status: blocked` with `security reviewer unavailable` in `notes`. Do not emit handoffs in this case.
+
+Do NOT emit a security handoff without one of these two slash-command lines. The security slot must always be filled by one of the two named skills.
+
+## Language detection and Claude recipe skill loading
+
+Before writing the Claude reviewer prompt file, determine the project language and the matching production-code / test-code recipe skills. The Claude reviewer MUST invoke those skills at the start of its run so the review is anchored to the project's documented code standards.
+
+### Language resolution
+
+1. If the caller passed a non-empty `language` input, use it verbatim (lower-case it for lookup).
+2. If `language` is missing, empty, or `unknown`, infer it from the extensions of `changed_files` using this precedence (first match wins):
+   - `.ts`, `.tsx`, `.mts`, `.cts` → `typescript`
+   - `.py`, `.pyi` → `python`
+   - `.go` → `go`
+   - `.rs` → `rust`
+3. If neither the caller nor the extension check yields a known language, record `language: unknown` and skip recipe loading — do NOT block the run.
+
+### Recipe skill mapping
+
+| Language | Production skill | Test skill |
+|----------|------------------|------------|
+| `typescript` | `typescript-services:production-code-recipe` | `typescript-services:test-code-recipe` |
+| `python` | `python-services:production-code-recipe` | `python-services:test-code-recipe` |
+| `go` | `go-services:go-expert-recipe` | `go-services:go-reviewer-recipe` |
+| `rust` | `rust-services:production-code-recipe` | `rust-services:test-code-recipe` |
+
+### Availability check
+
+For each mapped skill, check whether it appears in the current session's available-skills list (the list provided in system-reminders by the harness).
+
+- If a mapped skill is present, include it in the Claude recipe load list.
+- If a mapped skill is missing, omit it and add a note to the run (e.g. `"claude recipe: typescript-services:test-code-recipe not installed, skipped"`). Do NOT block.
+- If both the production-code and test-code skills for the detected language are missing, record `claude recipe: no project recipes available for <language>` and proceed without recipe loading.
+
+### Merging with caller-provided recipes
+
+If the caller passed a non-empty `recipe_list`, merge the caller's list with the mapped list. Deduplicate by skill name. The Claude recipe load list is the union.
+
+### Claude prompt file obligation
+
+The Claude prompt file MUST include a preamble that tells Claude to invoke every skill in the resolved recipe load list via the Skill tool BEFORE running any review step. Each invocation is for standards context — Claude should treat the returned content as the authoritative rules for its review. If the resolved list is empty, the preamble states that no project recipes were resolved and Claude proceeds without recipe context.
+
+This obligation applies only to the Claude prompt file. Codex, Gemini, and the security prompt files do NOT receive the Skill-tool preamble.
 
 ## Prompt-File Naming
 
@@ -66,7 +120,9 @@ Build one prompt per reviewer. Each prompt must include:
 - the reporting contract below
 - the subprocess hygiene block below (reviewers that run commands must not hang the orchestrator)
 
-**Security reviewer prompt exception:** The security reviewer prompt (index 4) MUST begin with `/security:big-toni` as the first line, followed by the review scope and changed files. It does NOT receive the standard recipe list or language context — `security:big-toni` determines its own methodology. It MUST still receive the prior review context and the reporting contract below so it does not re-raise already-resolved findings.
+**Claude prompt file exception:** The Claude prompt file (index 1) MUST begin with a "Load project recipe skills first" preamble that lists the resolved recipe load list from "Language detection and Claude recipe skill loading" and instructs Claude to invoke each one via the Skill tool before running any review step. If the resolved list is empty, the preamble states that no project recipes were resolved and Claude proceeds without recipe context.
+
+**Security reviewer prompt exception:** The security reviewer prompt (index 4) MUST begin with the slash command chosen in "Security reviewer skill selection" — `/security:big-toni` when big-toni is available, otherwise `/plan-executor:lite-security-reviewer`. The first line is followed by the review scope and changed files. When big-toni is used it does NOT receive the standard recipe list or language context — `security:big-toni` determines its own methodology. When the lite fallback is used it receives the review scope, changed files, prior review context, and the reporting contract directly (it has its own built-in checklist, so no recipe list is needed). In both cases the security reviewer MUST receive the prior review context and the reporting contract so it does not re-raise already-resolved findings.
 
 **Reporting contract to include in every reviewer prompt:**
 
@@ -93,16 +149,18 @@ Build one prompt per reviewer. Each prompt must include:
 ### Dispatch Mode
 
 1. Validate all required inputs are present.
-2. Build one reviewer prompt per reviewer using the contract above.
-3. Write the four prompt files to `execution_root`.
-4. Emit exactly four handoff lines in a single batch using the format from the handoff protocol:
+2. Run the security reviewer skill-selection check (see "Security reviewer skill selection"). Record the chosen skill and, if the lite fallback was selected, add a note for the run so the completion report can surface it.
+3. Run the language detection and Claude recipe load-list resolution (see "Language detection and Claude recipe skill loading"). Record the detected language and the final recipe load list. Add notes for any missing mapped skills.
+4. Build one reviewer prompt per reviewer using the contract above. The security prompt's first line uses the slash command chosen in step 2. The Claude prompt's preamble uses the recipe load list from step 3.
+5. Write the four prompt files to `execution_root`.
+6. Emit exactly four handoff lines in a single batch using the format from the handoff protocol:
    ```
    call sub-agent 1 (agent-type: claude): <execution_root>/.tmp-subtask-review-attempt-<attempt>-claude.md
    call sub-agent 2 (agent-type: codex, can-fail: true): <execution_root>/.tmp-subtask-review-attempt-<attempt>-codex.md
    call sub-agent 3 (agent-type: gemini, can-fail: true): <execution_root>/.tmp-subtask-review-attempt-<attempt>-gemini.md
    call sub-agent 4 (agent-type: claude): <execution_root>/.tmp-subtask-review-attempt-<attempt>-security.md
    ```
-5. Return `status: waiting_for_handoffs`.
+7. Return `status: waiting_for_handoffs`.
 
 ### Triage Mode
 
@@ -138,8 +196,10 @@ Return after emitting the prompt-file batch. Include:
 Return after successful triage. Include:
 
 - `status: complete`
-- `reviewer_set` — list of the four reviewers used
-- `attempt_note` — free-text note about this run (e.g. first attempt, retry N)
+- `reviewer_set` — list of the four reviewers used. For the security reviewer entry, record the actual skill used (`security:big-toni` or `plan-executor:lite-security-reviewer`).
+- `attempt_note` — free-text note about this run (e.g. first attempt, retry N). MUST mention the lite fallback when it was selected, the detected language, and any skipped Claude recipes.
+- `detected_language` — the resolved project language (`typescript` | `python` | `go` | `rust` | `unknown`).
+- `claude_recipes_loaded` — list of recipe skill names actually included in the Claude prompt file preamble.
 - `findings` — list of triaged findings; each entry:
   - `id` — short unique identifier (e.g. `F1`, `F2`)
   - `category` — one of `FIX_REQUIRED` | `VERIFIED_FIX` | `REJECTED` | `DEFERRED`
