@@ -36,11 +36,22 @@ If `--compiled-manifest` is missing from the invocation, emit a deterministic er
 
 When Phase 1 completes, continue directly into Phase 3 in the SAME run. Phase 1 completion is not a checkpoint.
 
+# AGENT PREAMBLE
+
+Every emitted implementation prompt file MUST begin with a standard agent preamble before any task content. The preamble must:
+
+1. State the agent's role: "You are a focused implementation agent. Implement exactly what this prompt describes. Nothing more, nothing less. Do NOT read or reference any other plan document, roadmap, or task files."
+2. Name each code standard recipe to load via the Skill tool before writing any code, using the exact skill name (e.g. `rust-services:production-code-recipe`). Include this even when the task body mentions the same skills.
+3. State the working directory (execution root).
+4. End with a report-back instruction: "After completing the task, report: all files you created or modified, any exported types or function signatures later tasks may depend on, and the result of any verification commands you ran."
+
+This preamble is part of the prompt file written to disk for each handoff. Sub-agents read only their own prompt file — they never see the orchestrator's plan or this skill — so the preamble is the only source of cross-cutting expectations.
+
 # PHASE 3: WAVE-BASED EXECUTION
 
 1. For each implementation batch, write iteration-safe prompt files using the transport naming contract from `execute-plan-non-interactive/HANDOFF_PROTOCOL.md`.
 2. For implementation batches, use `.tmp-subtask-wave-<wave>-batch-<batch>-<N>.md` in the execution root.
-2a. Each emitted implementation prompt file MUST include the standard agent preamble defined above before any task content.
+2a. Each emitted implementation prompt file MUST include the standard agent preamble (see `AGENT PREAMBLE` above) before any task content.
 3. Before stopping, write `.tmp-execute-plan-state.json` with a non-empty `handoffs` array containing one entry per emitted prompt file (`index`, `agentType`, `promptFile`, `canFail`). The executor will not dispatch sub-agents without this array.
 4. Print one `call sub-agent <N> (agent-type: <type>): <absolute-path>` line per emitted prompt file.
 5. Stop immediately after batch emission. **End the turn right after the last `call sub-agent` line.** Do NOT print anything else — no `# output sub-agent N:` blocks, no fabricated sub-agent results, no summaries, no "the sub-agents will now…" narration. The executor dispatches the sub-agents and resumes the session with the real outputs. Emitting `# output sub-agent N:` in the same turn as `call sub-agent N` is a protocol violation that the executor detects and fails the job — the run is wasted and no real work happened.
