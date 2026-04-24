@@ -1,10 +1,12 @@
 ---
 name: plan-executor:execute-plan-non-interactive
-description: Use when a READY implementation plan should be executed through deterministic non-interactive handoffs with an explicit plan path.
+description: Use ONLY when the user explicitly invokes /plan-executor:execute-plan-non-interactive with a plan path. Orchestrator-only — NEVER load from inside a dispatched sub-agent or from another plan-executor skill's execution.
 argument-hint: [plan-document] [jira-ticket] [--no-worktree] [--no-pr] [--draft-pr]
 ---
 
-**CRITICAL — FORBIDDEN TOOLS: You MUST NOT use the `Agent` tool, `Task` tool, or any sub-agent spawning tool under any circumstances. You MUST NOT use `AskUserQuestion`. All sub-agent work MUST go through the file-based handoff protocol: write prompt files, write `.tmp-execute-plan-state.json`, print `call sub-agent` lines, and STOP. The external executor dispatches sub-agents — you never do. Using the Agent tool is an execution failure that corrupts the handoff protocol.**
+**CRITICAL — FORBIDDEN TOOLS: You MUST NOT use the `Agent` tool, `Task` tool, or any sub-agent spawning tool under any circumstances. You MUST NOT use `AskUserQuestion`. You MUST NOT use `ScheduleWakeup` — non-interactive runs have no external scheduler to resume a paused process; a scheduled wakeup just terminates the run. All sub-agent work MUST go through the file-based handoff protocol: write prompt files, write `.tmp-execute-plan-state.json`, print `call sub-agent` lines, and STOP. The external executor dispatches sub-agents — you never do. Using the Agent tool is an execution failure that corrupts the handoff protocol.**
+
+**Waiting for external systems (CI, remote jobs): use a bounded inline poll inside a bash handoff, not `ScheduleWakeup`. Example for CI: `timeout 900 bash -c 'until gh pr checks "$PR" --required 2>/dev/null | grep -qv pending; do sleep 30; done'`. For PR monitoring specifically, use the mandatory `pr-monitor.sh` bash handoff (Phase 7).**
 
 **CRITICAL — END OF TURN AFTER HANDOFF EMISSION: The moment you print your final `call sub-agent N (agent-type: …): <path>` line for the current batch, the turn MUST end immediately. Do NOT write, print, narrate, simulate, or "show" anything after the last handoff line — no `# output sub-agent N:` blocks, no summaries, no planning text, no status updates, no file contents, no commit SHAs, no verification output, no tool calls, nothing. Every character you emit after the last handoff line is a protocol violation that the executor detects and will fail the job. The executor runs the real sub-agents, collects their real outputs, and resumes your session with a `# output sub-agent N:` continuation prompt — that prompt originates from the executor, never from you. If you catch yourself about to produce an `# output sub-agent N:` block or any post-handoff text in this same turn, stop the turn instead.**
 
@@ -259,3 +261,4 @@ When stopping, print only the next required action or the deterministic error ne
 - Execute phases in strict order.
 - Always stop deterministically when the next step depends on external handoff output or a terminal helper result.
 - No successful phase boundary is a checkpoint. Unless a deterministic stop condition applies, continue automatically until the run reaches its next required handoff stop or the terminal Phase 8 summary.
+- `ScheduleWakeup` is forbidden. If you need to wait for external state (CI, remote jobs, PR checks), either emit a bash handoff that polls with `until … sleep N` inside a `timeout`, or use the mandatory `pr-monitor.sh` handoff from Phase 7. Calling `ScheduleWakeup` in this non-interactive flow terminates the run because no scheduler resumes it.

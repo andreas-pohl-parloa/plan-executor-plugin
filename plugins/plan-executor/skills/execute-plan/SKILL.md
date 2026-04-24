@@ -1,6 +1,6 @@
 ---
 name: plan-executor:execute-plan
-description: Use when a READY interactive implementation plan should be executed in the current repository or worktree.
+description: Use ONLY when the user explicitly invokes /plan-executor:execute-plan in an interactive session. Orchestrator-only — NEVER load from inside a dispatched sub-agent, a subtask prompt file, or another plan-executor skill's execution.
 argument-hint: [plan-document] [jira-ticket] [--no-worktree] [--no-pr] [--draft-pr]
 ---
 
