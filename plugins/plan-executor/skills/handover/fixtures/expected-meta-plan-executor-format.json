@@ -1,0 +1,16 @@
+{
+  "plan_path": "<FIXTURES_DIR>/plan-executor-format.md",
+  "goal": "Demonstrate plan-executor format detection. Trivial scope so handover can run end-to-end without ambiguity.",
+  "type": "refactor",
+  "jira": "",
+  "target_repo": null,
+  "target_branch": null,
+  "flags": {
+    "merge": false,
+    "merge_admin": false,
+    "skip_pr": false,
+    "skip_code_review": false,
+    "no_worktree": false,
+    "draft_pr": true
+  }
+}
