@@ -55,19 +55,15 @@ If any required input is missing, unreadable, or inconsistent with persisted sta
    - On resume, invoke `plan-executor:run-reviewer-team-non-interactive` in triage mode by providing the three reviewer output blocks. Merge the returned `findings` and `triage_summary` into helper-owned review state.
    - If `plan-executor:run-reviewer-team-non-interactive` returns `status: blocked`, propagate as `status: blocked` with the delegated reason in `notes`.
 
-3. **Own fix-handoff generation.**
-   - When unresolved `FIX_REQUIRED` findings remain, write exactly one fix prompt file per finding using `.tmp-subtask-review-fix-attempt-<attempt>-<N>.md`, where N increments per issue. All files written to `execution_root`.
-   - If N unresolved `FIX_REQUIRED` issues exist, emit N fix handoff lines as a single batch.
-   - Each fix prompt must contain only the single `FIX_REQUIRED` finding it is responsible for, the exact files in scope, and required verification commands.
-   - Carry `VERIFIED_FIX`, `REJECTED`, and `DEFERRED` items forward as context in every fix prompt so fix agents know what has already been handled.
-   - Every fix prompt MUST include the subprocess hygiene block below verbatim (identical across all plan-executor non-interactive skills), so verification commands cannot hang the orchestrator:
-     > **Subprocess hygiene (MANDATORY — the daemon watchdog kills the job after prolonged silence).**
-     >
-     > Any Bash command that starts a long-running or backgrounded process MUST follow these rules:
-     > 1. Wrap every invocation in `timeout N` (N ≤ 600 seconds). Example: `timeout 120 ./run-tests`.
-     > 2. Never call bare `wait "$PID"` on a backgrounded process. Use `timeout N wait "$PID"` or a bounded `kill -0 "$PID"` poll with a max iteration count instead.
-     > 3. Escalate signals on cleanup: `kill -TERM "$PID" 2>/dev/null; sleep 1; kill -KILL "$PID" 2>/dev/null || true`. `SIGTERM` alone may be ignored.
-     > 4. Before exiting any script that spawned children, reap the group: `pkill -P $$ 2>/dev/null || true`.
+3. **Delegate fix-wave generation to `plan-executor compile-fix-waves`.**
+   - When unresolved `FIX_REQUIRED` findings remain, do NOT write per-finding fix prompt files yourself. Instead:
+     1. Serialize the unresolved `FIX_REQUIRED` findings as a JSON document conforming to `findings.schema.json` (one entry per finding; each with `id`, `severity`, `category`, `description`, optional `files`, optional `suggested_fix`). Do NOT include `VERIFIED_FIX`, `REJECTED`, or `DEFERRED` items in the document — those are carried forward only in helper-owned state.
+     2. Write the document to `<execution_root>/findings-round-<attempt>.json` using a write-tmp-then-rename pattern when the available tooling supports it.
+     3. Invoke the CLI: `plan-executor compile-fix-waves --plan <plan_path> --execution-root <execution_root> --findings-json <findings-path>`. The CLI rewrites `<execution_root>/tasks.json` in place, appending new fix-waves (IDs ≥ 100, `kind: "fix"`) that address the findings. On success the CLI prints the updated manifest path to stdout and exits 0; on failure it prints `ERROR: <message>` to stderr and exits non-zero.
+     4. If the CLI exits non-zero, return `status: blocked` with the CLI's stderr captured in `notes` and the corrective action required (typically: re-run after fixing the underlying issue surfaced by the CLI).
+     5. On success, parse the rewritten manifest to extract the new fix-wave IDs (those with `id >= 100` and `kind == "fix"` not present in the prior persisted snapshot). Persist them in helper-owned state under `appended_fix_wave_ids` for the current attempt.
+   - The orchestrator's standard wave-execution flow (Phase 3) dispatches the new fix-waves. This helper does NOT emit per-finding handoff lines for fix work; it only signals that fix-waves were appended.
+   - Subprocess hygiene for fix-task prompts is now embedded by the `plan-executor:compile-plan` skill's APPEND-mode prompt-file generation. This helper no longer inlines the hygiene block.
 
 4. **Own the review cap and deterministic stop behavior.**
    - Maximum review attempts per Phase 5 run: 3.
@@ -102,7 +98,7 @@ Each finding persisted in helper-owned state must be in exactly one bucket:
 6. Invoke `plan-executor:run-reviewer-team-non-interactive` in triage mode with the three reviewer output blocks. Merge the result into helper-owned review state.
 7. If no unresolved `FIX_REQUIRED` items remain, return `status: clean`.
 8. If the helper detects orchestrator bypass or missing required reviewer outputs without a helper-owned blocked reason, return `status: blocked`.
-9. If unresolved `FIX_REQUIRED` items remain and the cap is not exhausted, write fix prompt files, emit one fix handoff per finding as a batch, persist state, and return `status: fix_required`.
+9. If unresolved `FIX_REQUIRED` items remain and the cap is not exhausted, follow Section 3: serialize findings, invoke `plan-executor compile-fix-waves`, persist the appended fix-wave IDs in helper-owned state, and return `status: fix_required`. The orchestrator dispatches the new fix-waves through standard wave execution; this helper does not emit per-finding handoffs.
 10. After the delegated fix pass completes, require regression verification before re-entering step 4 for the next attempt.
 11. If the helper cannot continue deterministically, return `status: blocked`.
 12. If the retry cap is exhausted and unresolved `FIX_REQUIRED` items remain, return `status: abort` with deterministic stop notes.
@@ -132,11 +128,11 @@ Use when review is complete and no unresolved `FIX_REQUIRED` items remain.
 - `state_updates`: authoritative review-state persistence, including frozen reviewers and final triage snapshot
 
 ### `status: fix_required`
-Use when accepted findings require a delegated review-fix handoff batch.
+Use when accepted findings require fix work. Fix-wave generation is delegated to `plan-executor compile-fix-waves`; this helper records that fix-waves were appended to the manifest and returns control to the orchestrator.
 
-- `next_step`: execute the emitted review-fix batch — one handoff per `FIX_REQUIRED` finding — persist resulting execution output, then re-enter this helper for the next review attempt
-- `notes`: one entry per unresolved `FIX_REQUIRED` finding with its affected files and verification context, plus review-fix batch metadata
-- `state_updates`: authoritative review-state persistence, including attempt counters, per-issue active findings, and emitted fix-handoff metadata
+- `next_step`: dispatch the newly-appended fix-waves through the orchestrator's standard wave-execution flow, persist resulting execution output, then re-enter this helper for the next review attempt
+- `notes`: list of new fix-wave IDs appended (e.g. `[100, 101]`), attempt count, and one entry per unresolved `FIX_REQUIRED` finding with its affected files and verification context
+- `state_updates`: authoritative review-state persistence, including attempt counters, per-issue active findings, and the appended fix-wave IDs under `appended_fix_wave_ids`
 
 ### `status: waiting_for_handoffs`
 Use when `plan-executor:run-reviewer-team-non-interactive` has been invoked in dispatch mode and the helper must stop for the full reviewer batch output.
