@@ -34,3 +34,8 @@ plan-executor validate /tmp/compile-out/tasks.json
 ```
 
 The `plan-executor` Rust binary must be on `PATH`. The compile-plan skill itself self-validates via this same CLI in Pass 5.
+
+## Fix-loop fixtures (APPEND mode)
+
+- `findings-sample.json` — example reviewer findings consumed by `compile-plan` APPEND mode (`$5`). Conforms to `../findings.schema.json`.
+- `expected-tasks-with-fix-waves.json` — synthetic post-APPEND manifest illustrating: (a) original waves preserved, (b) round-1 fix-wave with id 100 depending on last impl wave, (c) round-2 fix-wave with id 101 depending on the prior fix-wave.
