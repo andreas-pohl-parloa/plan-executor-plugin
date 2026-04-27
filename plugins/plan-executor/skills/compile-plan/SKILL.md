@@ -6,7 +6,7 @@ argument-hint: [plan-path] [schema-path] [output-dir] [meta-json-path]
 
 <SUBAGENT-STOP>
 If you were dispatched as a subagent to execute a specific task, skip this skill.
-This skill is ONLY invoked by the plan-executor `execute` command as a pre-compile step.
+This skill is invoked from a Claude session at compile time (typically chained from `plan-executor:handover`), never from inside an execution.
 </SUBAGENT-STOP>
 
 ## Arguments
