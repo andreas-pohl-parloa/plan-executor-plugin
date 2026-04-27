@@ -28,8 +28,8 @@ The `plan-executor` CLI pre-compiles the plan via the `plan-executor:compile-pla
 
 1. Read the compiled manifest at the path given in `--compiled-manifest` (default fallback: `<execution-root>/.tmp-plan-compiled/<hash>/tasks.json`). Parse it as JSON.
 2. Trust the manifest. Schema shape and semantic rules have already been enforced by the Rust validator (`plan-executor validate`). Do NOT re-parse the plan markdown. Do NOT re-decompose tasks. Do NOT second-guess wave boundaries.
-3. Flip the plan status to `EXECUTING`. THIS IS NOT OPTIONAL.
-4. Initialize persisted execution state at `<execution-root>/.tmp-execute-plan-state.json` using the manifest's `waves` and `tasks` verbatim. Persist manifest path, plan path, execution root, current phase, wave metadata, attempt counters, and the active batch contract.
+3. Flip the manifest's `plan.status` field from `"READY"` to `"EXECUTING"` and write the updated `tasks.json` back to disk atomically. Do NOT mutate the plan markdown — the manifest is the source of truth for execution state. THIS IS NOT OPTIONAL.
+4. Initialize persisted execution state at `<execution-root>/.tmp-execute-plan-state.json` using the manifest's `waves` and `tasks` verbatim. Persist manifest path, plan path, execution root, current phase, wave metadata, attempt counters, and the active batch contract. The persisted plan path is `manifest.plan.path` and is treated as read-only by this skill — used only for human-readable status messages.
 5. Proceed directly to Phase 3 (WAVE-BASED EXECUTION) using the manifest's `waves` array as the authoritative decomposition.
 
 If `--compiled-manifest` is missing from the invocation, emit a deterministic error and stop. The CLI contract guarantees the argument — a missing value means the caller is out-of-spec, not that the orchestrator should fall back to parsing.
@@ -157,7 +157,7 @@ This preamble is part of the prompt file written to disk for each handoff. Sub-a
    - Do NOT mark the plan `COMPLETED` or print the execution summary until the PR finalization handoff has completed.
    - **If `pr-monitor.sh` returns 0 but the subsequent `gh pr merge` inside the wrapper fails (e.g. `mergeStateStatus: UNKNOWN` because a fix-session just pushed a new commit whose CI hasn't settled): do NOT emit an inline `until gh pr view ... mergeStateStatus; do sleep; done` loop on the orchestrator side. That is the documented way to hit the GHA job timeout at 2h+. Instead, emit a FRESH bash handoff that re-runs `pr-monitor.sh` with the new `--head-sha` (from `git rev-parse HEAD` after the fix-session push) and stop. `pr-monitor.sh` is the only supported place to wait for merge-readiness.**
 6. If final verification fails, emit cleanup-fix prompt files, update persisted state, print handoff lines, and stop.
-7. Mark the plan `COMPLETED` only after all required Phase 7 work succeeds, including `plan-executor:pr-finalize` when applicable.
+7. Set `plan.status` in the manifest (`tasks.json`) to `"COMPLETED"` only after all required Phase 7 work succeeds, including `plan-executor:pr-finalize` when applicable. On terminal failure paths, set it to `"FAILED"` instead. Do NOT modify the plan markdown.
 8. If Phase 7 completes without emitting another required handoff batch or hitting a deterministic stop condition, continue directly to Phase 8 in the SAME run. Cleanup and PR completion is not a checkpoint.
 
 # PHASE 8: EXECUTION SUMMARY
