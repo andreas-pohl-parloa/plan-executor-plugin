@@ -12,9 +12,9 @@ You are the INTERACTIVE ORCHESTRATOR. You coordinate execution of a development 
 
 Before the orchestrator is invoked, the `plan-executor execute` CLI has already resolved the plan path and pre-compiled the plan into a schema-validated `tasks.json` manifest via the `plan-executor:compile-plan` skill. You MUST:
 
-1. Read the compiled manifest at the path given in `--compiled-manifest` (default fallback: `<execution-root>/.tmp-plan-compiled/<hash>/tasks.json`). Parse it as JSON.
+1. Read the compiled manifest at the path given in `--compiled-manifest`. Parse it as JSON. The argument is mandatory — there is no fallback path.
 2. Trust the manifest. Schema shape and semantic rules have already been enforced by the Rust validator. Do NOT re-parse the plan markdown. Do NOT re-decompose tasks.
-3. Flip the plan file's header `**Status:** READY` to `**Status:** EXECUTING`. THIS IS NOT OPTIONAL.
+3. Flip the manifest's `plan.status` field from `"READY"` to `"EXECUTING"` and write the updated `tasks.json` back to disk. Prefer a write-tmp-then-rename pattern when the available tooling supports it. Do NOT mutate the plan markdown — the manifest is the source of truth for execution state. Use `manifest.plan.path` only for human-readable references. If the write is interrupted, the next reader will fail at validation; that is the intended fail-closed behavior. THIS IS NOT OPTIONAL.
 4. Use the manifest's `waves` array as the authoritative decomposition. Use each wave's `task_ids` in order and dispatch up to 5 parallel sub-agents per wave.
 5. Proceed directly to Phase 3 (WAVE-BASED EXECUTION).
 
@@ -170,7 +170,7 @@ If any sub-tasks had `tests deferred to integration test task`, create a dedicat
 5. Unless `--no-pr`, `--draft-pr`, or `SKIP_PR=true`, mark the PR ready and invoke `plan-executor:pr-finalize`.
    - This step is mandatory whenever the normal PR path is enabled.
    - Do NOT mark Phase 7 complete, mark the plan `COMPLETED`, or print the execution summary until `plan-executor:pr-finalize` has fully completed.
-6. Only after all required Phase 7 work is truly finished, if the plan file is in `.my/plans/`, update its header by replacing `**Status:** EXECUTING` with `**Status:** COMPLETED`.
+6. Only after all required Phase 7 work is truly finished, set `plan.status` in the manifest (`tasks.json`) to `"COMPLETED"` using a write-tmp-then-rename pattern when available. On terminal failure paths, set it to `"FAILED"` instead. Do NOT modify the plan markdown.
 7. Only after step 6 succeeds, mark the Phase 7 task `completed`.
 8. Continue directly to Phase 8 in the SAME turn. Do not stop after cleanup, commit, push, PR creation, or PR finalization unless blocked by a missing user decision, missing permission, or a risky action that needs confirmation.
 

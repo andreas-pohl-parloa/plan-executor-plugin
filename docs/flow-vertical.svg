@@ -41,7 +41,7 @@
   <!-- Handover -->
   <rect x="12" y="286" width="420" height="52" rx="8" fill="#4a90d9" filter="url(#shadow)"/>
   <text x="222" y="308" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Handover</text>
-  <text x="222" y="327" text-anchor="middle" fill="#d0e4f7" font-size="12">plan-executor:superpowers-plan-handover</text>
+  <text x="222" y="327" text-anchor="middle" fill="#d0e4f7" font-size="12">plan-executor:handover</text>
 
   <!-- ══════════ Single arrow down ══════════ -->
   <line x1="222" y1="338" x2="222" y2="380" stroke="#8b949e" stroke-width="1.5"/>

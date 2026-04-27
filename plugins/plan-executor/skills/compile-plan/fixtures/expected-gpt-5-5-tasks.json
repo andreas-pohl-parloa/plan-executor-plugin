@@ -6,6 +6,8 @@
     "jira": "CCP-0",
     "target_repo": null,
     "target_branch": null,
+    "path": "<FIXTURES_DIR>/plan-gpt-5-5-support.md",
+    "status": "READY",
     "flags": {
       "merge": true,
       "merge_admin": false,

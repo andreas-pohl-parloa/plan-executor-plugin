@@ -28,7 +28,7 @@ The script is idempotent: re-running it does a clean reinstall (removes, clears 
 |------|-------------|
 | **Brainstorm** | `superpowers:brainstorming` explores the idea, asks questions, writes a design spec |
 | **Plan** | `superpowers:writing-plans` turns the spec into a step-by-step implementation plan |
-| **Handover** | `PostToolUse` hook triggers `plan-executor:superpowers-plan-handover` — user chooses a mode |
+| **Handover** | `PostToolUse` hook triggers `plan-executor:handover` — collects executor metadata into a `meta.json` sidecar |
 | **Inline / Subagent** | Execute directly via Superpowers skills |
 | **Interactive** | Wave-based execution with code review (Claude + Codex + Gemini + Security) and plan validation |
 | **Local** | Hand off to the `plan-executor` daemon on the local machine |
@@ -48,7 +48,7 @@ The script is idempotent: re-running it does a clean reinstall (removes, clears 
 | `/plan-executor:review-execution-output-non-interactive` | Non-interactive code review via prompt-file handoffs |
 | `/plan-executor:run-reviewer-team` | Launch parallel Claude + Codex + Gemini + Security reviewer set |
 | `/plan-executor:run-reviewer-team-non-interactive` | Non-interactive reviewer dispatch and triage via handoffs |
-| `/plan-executor:superpowers-plan-handover` | Hand a Superpowers plan over into the execution flow |
+| `/plan-executor:handover` | Universal plan ingestion — detects format and writes a `meta.json` sidecar for compile-plan |
 | `/plan-executor:validate-execution-plan` | Validate a plan against implementation output (interactive) |
 | `/plan-executor:validate-execution-plan-non-interactive` | Validate a plan with persisted state (non-interactive) |
 

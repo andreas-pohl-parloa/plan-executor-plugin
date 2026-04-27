@@ -1,12 +1,12 @@
 ---
 name: plan-executor:compile-plan
 description: Use ONLY when the orchestrator or a tooling subprocess needs to transform a plan-executor plan markdown file into a schema-validated `tasks.json` manifest + per-task prompt files. One-shot compiler. No phase transitions, no state management, no handoff emission.
-argument-hint: [plan-path] [schema-path] [output-dir]
+argument-hint: [plan-path] [schema-path] [output-dir] [meta-json-path]
 ---
 
 <SUBAGENT-STOP>
 If you were dispatched as a subagent to execute a specific task, skip this skill.
-This skill is ONLY invoked by the plan-executor `execute` command as a pre-compile step.
+This skill is invoked from a Claude session at compile time (typically chained from `plan-executor:handover`), never from inside an execution.
 </SUBAGENT-STOP>
 
 ## Arguments
@@ -14,6 +14,7 @@ This skill is ONLY invoked by the plan-executor `execute` command as a pre-compi
 - `$1` — absolute path to the plan markdown file. Required.
 - `$2` — absolute path to `tasks.schema.json`. Required.
 - `$3` — absolute output directory for `tasks.json` and `tasks/*.md`. Required. Created if missing.
+- `$4` — absolute path to the `meta.json` sidecar produced by `plan-executor:handover`. Required.
 
 # Task: compile a plan-executor plan into a tasks.json manifest
 
@@ -21,10 +22,11 @@ You are a compiler. Your only job is to transform a plan markdown document into 
 
 ## Inputs
 
-Two files are provided:
+Three files are provided:
 
 1. `<plan-path>` — a plan-executor plan markdown file. Contains a header with metadata and numbered tasks in prose.
 2. `<schema-path>` — the JSON Schema for the output manifest (`tasks.schema.json`).
+3. `<meta-json-path>` — the metadata sidecar produced by `plan-executor:handover`. Authoritative source for `goal`, `type`, `jira`, `target_repo`, `target_branch`, `flags`, and `plan.path`.
 
 Your output directory is `<output-dir>`. Create it if it does not exist. Write:
 
@@ -35,19 +37,17 @@ Your output directory is `<output-dir>`. Create it if it does not exist. Write:
 
 Work in four passes over the plan. Do not interleave them.
 
-### Pass 1 — Header extraction
+### Pass 1 — Load metadata from `meta.json`
 
-Read the plan's header. Extract:
+Read `$4` (the meta-json-path passed by `plan-executor:handover`). Parse it and verify required fields are present: `plan_path`, `goal`, `type`, `flags` (all six booleans). If any required field is missing, exit with a deterministic error of the form:
 
-- `goal`: the `**Goal:**` line content (required).
-- `type`: the `**Type:**` value (required). Normalize to one of `feature`, `bug`, `refactor`, `chore`, `docs`, `infra`. If the plan says something else, pick the closest fit.
-- `jira`: the `**JIRA:**` / `**Ticket:**` line, if any. Accept `CCP-123` style. Empty string if absent.
-- `target_repo`: the `**target_repo:**` value, if any (expected as `owner/repo`). Null if not declared in-plan — the executor uses its own runtime config.
-- `target_branch`: the `**target_branch:**` or `**branch:**` value, if any. Null if not declared.
-- `flags`: read checkbox-style headers. For each of `merge`, `merge_admin`, `skip_pr`, `skip_code_review`, `no_worktree`, `draft_pr`:
-  - Look for a header line in the form `**merge:** [x]` / `**merge:** [ ]`.
-  - `[x]` → `true`; `[ ]` or missing → `false`.
-  - Normalize header names: `merge-admin`, `merge_admin`, `no-worktree`, `no_worktree`, `no-pr` → `skip_pr`, `draft-pr` → `draft_pr`, etc. Use the canonical snake_case enum in the schema.
+```
+COMPILE_ERROR: meta.json missing required field <field-name>
+```
+
+Use `meta.json` as the authoritative source for: `goal`, `type`, `jira`, `target_repo`, `target_branch`, `flags`. Do NOT re-parse plan markdown headers — `handover` already collected this metadata. Do NOT ask for any clarification — this is a one-shot transformer.
+
+The `plan_path` value becomes the manifest's `plan.path` field. The manifest's `plan.status` is initialized to `"READY"`.
 
 ### Pass 2 — Task extraction
 
@@ -81,7 +81,31 @@ Wave IDs start at 1 and are dense (1, 2, 3, …). Use IDs >= 100 ONLY for fix wa
 
 ### Pass 4 — Emit + validate
 
-Write `<output-dir>/tasks.json` with the full manifest. Before exiting, verify:
+Write `<output-dir>/tasks.json` with the full manifest.
+
+The `plan` object inside the manifest now carries the new fields:
+
+```json
+{
+  "version": 1,
+  "plan": {
+    "goal": "...",
+    "type": "feature",
+    "jira": "",
+    "target_repo": null,
+    "target_branch": null,
+    "path": "<absolute-plan-path-from-meta.json>",
+    "status": "READY",
+    "flags": { /* six booleans */ }
+  },
+  "waves": [...],
+  "tasks": {...}
+}
+```
+
+`plan.path` MUST be the `plan_path` value read from `meta.json`. `plan.status` MUST be the literal string `"READY"`. The schema rejects manifests that omit either field.
+
+Before exiting, verify:
 
 - The JSON parses.
 - Every `task_id` in `waves[].task_ids` exists in `tasks`.
@@ -90,8 +114,36 @@ Write `<output-dir>/tasks.json` with the full manifest. Before exiting, verify:
 - Every `tasks[].agent_type` is in `{claude, codex, gemini, bash}`.
 - Every `tasks[].prompt_file` path exists on disk under `<output-dir>/`.
 - `version` is `1`.
+- `plan.path` is a non-empty string and `plan.status` is `"READY"`.
 
 If any check fails, fix it and rewrite the manifest. Do not exit with an invalid manifest.
+
+### Pass 5 — Self-validate via `plan-executor validate`
+
+After emitting `tasks.json`, run the Rust validator as a subprocess:
+
+```
+plan-executor validate <output-dir>/tasks.json
+```
+
+If exit 0 (`VALID:` line on stdout): proceed to the output contract.
+
+If exit 1 (one or more `ERROR:` lines on stderr): parse the errors, identify which fields/structures are wrong, regenerate the manifest correcting the specific issues, and re-validate. Retry budget: **3 attempts**. After 3 failed attempts, exit non-zero with a diagnostic dump on stderr including all observed validator errors:
+
+```
+COMPILE_ERROR: validator rejected manifest after 3 attempts
+ERROR: <first attempt's errors>
+ERROR: <second attempt's errors>
+ERROR: <third attempt's errors>
+```
+
+If `plan-executor` is not on `PATH` (e.g. `command -v plan-executor` fails), exit immediately with:
+
+```
+SKILL_REQUIRES_PLAN_EXECUTOR_BINARY: install plan-executor first
+```
+
+This makes the skill self-correcting: it cannot emit an invalid manifest. The Rust validator is the canonical truth-source for manifest correctness.
 
 ## Output contract
 

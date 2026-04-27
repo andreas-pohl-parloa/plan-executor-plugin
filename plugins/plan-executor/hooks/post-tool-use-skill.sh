@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PostToolUse hook: fires after each Skill tool call.
 # When superpowers:writing-plans was invoked, injects a mandatory reminder
-# that plan-executor:superpowers-plan-handover MUST be run after the plan is written.
+# that plan-executor:handover MUST be run after the plan is written.
 
 set -euo pipefail
 
@@ -15,7 +15,7 @@ cat <<'EOF'
 {
   "hookSpecificOutput": {
     "hookEventName": "PostToolUse",
-    "additionalContext": "MANDATORY NEXT STEP: superpowers:writing-plans was just invoked. Once the plan has been written to docs/superpowers/plans/, you MUST immediately invoke plan-executor:superpowers-plan-handover with that exact plan path. This step is REQUIRED and MUST NOT be skipped, deferred, bypassed, or replaced with the default Superpowers execution-choice handoff. Do NOT present execution choices or continue with the default Superpowers flow — hand over to plan-executor:superpowers-plan-handover instead."
+    "additionalContext": "MANDATORY NEXT STEP: superpowers:writing-plans was just invoked. Once the plan has been written to docs/superpowers/plans/, you MUST immediately invoke plan-executor:handover with that exact plan path. This step is REQUIRED and MUST NOT be skipped, deferred, bypassed, or replaced with the default Superpowers execution-choice handoff. Do NOT present execution choices or continue with the default Superpowers flow — hand over to plan-executor:handover instead."
   }
 }
 EOF
