@@ -8,8 +8,6 @@ argument-hint: [plan-document] [jira-ticket] [--no-worktree] [--no-pr] [--draft-
 
 **CRITICAL — BOUNDED POLLS ONLY: Every `until … sleep N; done` loop you emit MUST be wrapped in `timeout <S> bash -c '…'`. No exceptions — not for CI checks, not for merge-state, not for deploy status, not for "just a quick wait". An unbounded `until` loop polling an external system (GitHub, Datadog, etc.) that never reaches the expected state will consume the entire GHA job budget and get killed by the runner, not by you. Canonical shape: `timeout 900 bash -c 'until gh pr checks "$PR" --required 2>/dev/null | grep -qv pending; do sleep 30; done'`. Pick `<S>` so the poll fails fast enough that you can re-evaluate and emit a bash handoff instead: 600s for CI checks, 900s for merge-readiness, 1800s is the ceiling. If the `timeout` fires, do NOT widen it and retry inline — stop, emit a fresh bash handoff (e.g. re-run `pr-monitor.sh`), and let the executor run it. For PR monitoring specifically, use the mandatory `pr-monitor.sh` bash handoff (Phase 7) and its post-fix retry path — do not hand-roll inline polls for merge-state.**
 
-**CRITICAL — `agent-type` ENUM: Every `call sub-agent` line MUST use `agent-type: <X>` where `<X>` is EXACTLY one of `claude`, `codex`, `gemini`, `bash` — lowercase, verbatim. No other value is accepted. In particular: `general-purpose`, `Explore`, `Plan`, `subagent`, `worker`, `claude-sonnet`, or any Task/Agent-tool subagent_type name is INVALID and will cause the executor to kill the session. If you are about to emit a value outside this set, stop and pick `claude` for implementation/review/validation work, `codex` or `gemini` only when a helper explicitly names them for reviewer diversity, and `bash` only for shell scripts.**
-
 **CRITICAL — END OF TURN AFTER HANDOFF EMISSION: The moment you print your final `call sub-agent N (agent-type: …): <path>` line for the current batch, the turn MUST end immediately. Do NOT write, print, narrate, simulate, or "show" anything after the last handoff line — no `# output sub-agent N:` blocks, no summaries, no planning text, no status updates, no file contents, no commit SHAs, no verification output, no tool calls, nothing. Every character you emit after the last handoff line is a protocol violation that the executor detects and will fail the job. The executor runs the real sub-agents, collects their real outputs, and resumes your session with a `# output sub-agent N:` continuation prompt — that prompt originates from the executor, never from you. If you catch yourself about to produce an `# output sub-agent N:` block or any post-handoff text in this same turn, stop the turn instead.**
 
 You are the NON-INTERACTIVE ORCHESTRATOR. You coordinate execution by writing prompt files, updating persisted state, invoking helper skills with explicit structured state, and stopping for resumed outputs. You NEVER write production code or test code yourself.
@@ -24,91 +22,36 @@ You are the NON-INTERACTIVE ORCHESTRATOR. You coordinate execution by writing pr
 - Do NOT directly launch implementation workers yourself. For implementation, integration, cleanup-fix, and any other execution batches, emit prompt files plus transport lines, persist state, and stop so the external executor can run them.
 - Do NOT write implementation code, review fixes, validation fixes, or tests yourself.
 
-# PHASE 1: SETUP
+# PHASE 1: LOAD COMPILED MANIFEST
 
-1. Require an explicit plan path.
-2. Reject missing or unreadable plans with deterministic errors.
-3. Read the full plan and validate required headers, including `**Goal:**`, `**Type:**`, and `**Status:** READY`.
-4. Resolve plan type, `SKIP_CODE_REVIEW`, `SKIP_PR`, `--no-worktree`, `--no-pr`, `--draft-pr`, `--merge`, and `--merge-admin` deterministically. Read `**merge:** [x]` and `**merge-admin:** [x]` from the plan header. Command-line arguments always take precedence over plan header flags.
-5. Resolve the execution root and worktree behavior using the same safety rules as the interactive orchestrator.
-6. Initialize persisted execution state at `<execution-root>/.tmp-execute-plan-state.json` before the first non-interactive handoff.
-7. Persist enough setup metadata to resume safely, including skill version, plan path, execution root, current phase, wave metadata, attempt counters, and the active batch contract.
-8. Mark the plan `EXECUTING` only after setup succeeds. THIS IS NOT OPTIONAL.
-9. If setup completes without hitting a deterministic stop condition, continue directly into Phase 2 in the SAME run. Setup completion is not a checkpoint.
+The `plan-executor` CLI pre-compiles the plan via the `plan-executor:compile-plan` skill and passes the path via the `--compiled-manifest` argument. You MUST:
 
-# PHASE 2: TASK DECOMPOSITION
+1. Read the compiled manifest at the path given in `--compiled-manifest` (default fallback: `<execution-root>/.tmp-plan-compiled/<hash>/tasks.json`). Parse it as JSON.
+2. Trust the manifest. Schema shape and semantic rules have already been enforced by the Rust validator (`plan-executor validate`). Do NOT re-parse the plan markdown. Do NOT re-decompose tasks. Do NOT second-guess wave boundaries.
+3. Flip the plan status to `EXECUTING`. THIS IS NOT OPTIONAL.
+4. Initialize persisted execution state at `<execution-root>/.tmp-execute-plan-state.json` using the manifest's `waves` and `tasks` verbatim. Persist manifest path, plan path, execution root, current phase, wave metadata, attempt counters, and the active batch contract.
+5. Proceed directly to Phase 3 (WAVE-BASED EXECUTION) using the manifest's `waves` array as the authoritative decomposition.
 
-1. Read the chosen plan file and use its visible structure.
-2. If the plan contains explicit implementation task sections like `## Task 1: ...`, `## Task 2: ...`, treat those task sections as the authoritative decomposition source.
-3. If the plan body is mostly organized as numbered task sections with nested steps, preserve that structure during decomposition.
-4. If the plan does not contain explicit task sections, derive the decomposition from the remaining ordered instructions in the file.
-5. For plans with explicit task sections, do NOT invent a replacement top-level decomposition. Instead, preserve the existing task order and break each plan task into executable sub-tasks and waves using only the steps, files, dependencies, and acceptance criteria already present in that task section.
-6. For plans without explicit task sections, derive the discrete ordered sub-tasks from the plan content as usual.
-7. When the plan already includes sequential test/implement/verify/commit steps, keep those steps grouped under the same parent task and only split further when needed to satisfy the 3-5 minute granularity rule.
-8. When assigning waves for plans with numbered task sections, assume later numbered plan tasks depend on earlier numbered plan tasks unless the file paths and task text make independence explicit.
-9. Produce numbered sub-tasks and wave groupings using the same dependency rules as the interactive orchestrator.
-10. Record wave metadata in persisted execution state before Phase 3 begins.
-11. Record, per sub-task, the files or dependency context later waves must receive.
-12. Keep decomposition deterministic so a resumed run does not renumber tasks or waves unexpectedly.
-13. If Phase 2 completes without emitting a required handoff batch or hitting another deterministic stop condition, continue directly into Phase 3 in the SAME run. Task decomposition is not a checkpoint.
+If `--compiled-manifest` is missing from the invocation, emit a deterministic error and stop. The CLI contract guarantees the argument — a missing value means the caller is out-of-spec, not that the orchestrator should fall back to parsing.
 
-For plans with explicit numbered task sections:
+When Phase 1 completes, continue directly into Phase 3 in the SAME run. Phase 1 completion is not a checkpoint.
 
-- default to one execution wave per numbered plan task unless you can verify that two plan tasks are independent by both dependency text and touched-file sets;
-- keep all sub-tasks derived from the same numbered plan task in the same wave when that plan task is written as a TDD sequence or otherwise assumes a shared intermediate state;
-- do NOT parallelize two numbered plan tasks that modify the same file, even if they appear adjacent and small;
-- when a later plan task says "append", "replace", "update", "expand", "then", or otherwise references outputs from an earlier task, treat it as dependent on that earlier task.
-
-For each sub-task, the emitted prompt file must include:
-
-- **Granularity** — a sub-task should not take more than 3-5 minutes to execute.
-- **All implementation details for this task only** — copy every relevant detail, code snippet, file path, interface definition, type, constant, config value, and acceptance criterion from the plan that pertains to this task. Do NOT summarize or abbreviate.
-- **Dependency context** — for tasks that depend on earlier tasks, include a summary of what earlier tasks produced, including relevant type signatures, file paths, export names, and interfaces.
-- **What is out of scope** — explicitly state that the sub-agent must NOT work on any other task and must NOT explore the full plan document.
-- **Testing expectations** — state whether the sub-agent should write tests for this task. If the task is tightly coupled and only testable in integration, mark it as `tests deferred to integration test task`.
-- **Code standard recipes to load** — list the exact skill names the sub-agent must load before writing code.
-
-Within each wave, tasks that touch completely different files and have no shared dependencies can run in parallel, up to 5 concurrent handoffs. Tasks within the same wave that modify the same files or share dependencies MUST run sequentially within that wave.
-
-Persist the resulting wave plan and sub-task metadata exactly so resumed runs do not reinterpret the decomposition.
-
-If a non-interactive prompt file was derived from a plan task section, treat that prompt file as the sole source of truth for that task's copied code snippets, commands, and acceptance criteria.
-
-# PROMPT FILE CONTENT RULES
+# AGENT PREAMBLE
 
 Every emitted implementation prompt file MUST begin with a standard agent preamble before any task content. The preamble must:
 
-1. State the agent's role explicitly:
-   > You are a focused implementation agent. Implement exactly what this prompt describes. Nothing more, nothing less. Do NOT read or reference any other plan document, roadmap, or task files.
+1. State the agent's role: "You are a focused implementation agent. Implement exactly what this prompt describes. Nothing more, nothing less. Do NOT read or reference any other plan document, roadmap, or task files."
+2. Name each code standard recipe to load via the Skill tool before writing any code, using the exact skill name (e.g. `rust-services:production-code-recipe`). Include this even when the task body mentions the same skills.
+3. State the working directory (execution root).
+4. End with a report-back instruction: "After completing the task, report: all files you created or modified, any exported types or function signatures later tasks may depend on, and the result of any verification commands you ran."
 
-2. Instruct the agent to load code standard recipes using the Skill tool before writing any code. Name each skill explicitly using its exact skill name. Example:
-   > Load and apply these skills using the Skill tool before writing any code: `rust-services:production-code-recipe`, `rust-services:test-code-recipe`
-
-3. State the working directory the agent must use.
-
-4. At the end of the prompt file, instruct the agent to report back:
-   > After completing the task, report: all files you created or modified, any exported types or function signatures later tasks may depend on, and the result of any verification commands you ran.
-
-5. Include the standard **Subprocess hygiene** block below verbatim so the sub-agent cannot hang the job on a runaway process. The same block appears across all non-interactive plan-executor skills — emit it unchanged:
-   > **Subprocess hygiene (MANDATORY — the daemon watchdog kills the job after prolonged silence).**
-   >
-   > Any Bash command that starts a long-running or backgrounded process MUST follow these rules:
-   > 1. Wrap every invocation in `timeout N` (N ≤ 600 seconds). Example: `timeout 120 ./run-tests`.
-   > 2. Never call bare `wait "$PID"` on a backgrounded process. Use `timeout N wait "$PID"` or a bounded `kill -0 "$PID"` poll with a max iteration count instead.
-   > 3. Escalate signals on cleanup: `kill -TERM "$PID" 2>/dev/null; sleep 1; kill -KILL "$PID" 2>/dev/null || true`. `SIGTERM` alone may be ignored.
-   > 4. Before exiting any script that spawned children, reap the group: `pkill -P $$ 2>/dev/null || true`.
-
-   For verification commands that require a local server, prefer `timeout 30 bash -c 'until curl -sf http://localhost:PORT/health; do sleep 1; done'` over indefinite `wait`, and tear the server down with the escalate-and-reap pattern above. (This guidance is contextual; the four numbered rules above are the normative block.)
-
-The preamble MUST be present even when the task body already mentions which skills to load. The preamble makes intent unambiguous for an agent that has no prior context.
-
-For non-implementation prompt files (review, validation, integration), include the role, working directory, and **Subprocess hygiene** lines; omit the code-standards recipe loading instruction unless the helper skill that generates those files specifies it.
+This preamble is part of the prompt file written to disk for each handoff. Sub-agents read only their own prompt file — they never see the orchestrator's plan or this skill — so the preamble is the only source of cross-cutting expectations.
 
 # PHASE 3: WAVE-BASED EXECUTION
 
 1. For each implementation batch, write iteration-safe prompt files using the transport naming contract from `execute-plan-non-interactive/HANDOFF_PROTOCOL.md`.
 2. For implementation batches, use `.tmp-subtask-wave-<wave>-batch-<batch>-<N>.md` in the execution root.
-2a. Each emitted implementation prompt file MUST include the standard agent preamble defined above before any task content.
+2a. Each emitted implementation prompt file MUST include the standard agent preamble (see `AGENT PREAMBLE` above) before any task content.
 3. Before stopping, write `.tmp-execute-plan-state.json` with a non-empty `handoffs` array containing one entry per emitted prompt file (`index`, `agentType`, `promptFile`, `canFail`). The executor will not dispatch sub-agents without this array.
 4. Print one `call sub-agent <N> (agent-type: <type>): <absolute-path>` line per emitted prompt file.
 5. Stop immediately after batch emission. **End the turn right after the last `call sub-agent` line.** Do NOT print anything else — no `# output sub-agent N:` blocks, no fabricated sub-agent results, no summaries, no "the sub-agents will now…" narration. The executor dispatches the sub-agents and resumes the session with the real outputs. Emitting `# output sub-agent N:` in the same turn as `call sub-agent N` is a protocol violation that the executor detects and fails the job — the run is wasted and no real work happened.
