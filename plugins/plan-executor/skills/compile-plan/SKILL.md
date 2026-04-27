@@ -118,6 +118,33 @@ Before exiting, verify:
 
 If any check fails, fix it and rewrite the manifest. Do not exit with an invalid manifest.
 
+### Pass 5 — Self-validate via `plan-executor validate`
+
+After emitting `tasks.json`, run the Rust validator as a subprocess:
+
+```
+plan-executor validate <output-dir>/tasks.json
+```
+
+If exit 0 (`VALID:` line on stdout): proceed to the output contract.
+
+If exit 1 (one or more `ERROR:` lines on stderr): parse the errors, identify which fields/structures are wrong, regenerate the manifest correcting the specific issues, and re-validate. Retry budget: **3 attempts**. After 3 failed attempts, exit non-zero with a diagnostic dump on stderr including all observed validator errors:
+
+```
+COMPILE_ERROR: validator rejected manifest after 3 attempts
+ERROR: <first attempt's errors>
+ERROR: <second attempt's errors>
+ERROR: <third attempt's errors>
+```
+
+If `plan-executor` is not on `PATH` (e.g. `command -v plan-executor` fails), exit immediately with:
+
+```
+SKILL_REQUIRES_PLAN_EXECUTOR_BINARY: install plan-executor first
+```
+
+This makes the skill self-correcting: it cannot emit an invalid manifest. The Rust validator is the canonical truth-source for manifest correctness.
+
 ## Output contract
 
 When done, print ONE line to stdout:
