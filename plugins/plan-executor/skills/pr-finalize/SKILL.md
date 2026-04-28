@@ -194,7 +194,31 @@ current branch. If `--pr <N>` was explicitly passed in the args, use that instea
 Same as Launcher mode Step 2: if the PR is a draft, run `gh pr ready <N>`. The
 remote runner will not finalize a draft.
 
-### Step 3: Shell to the Rust CLI
+### Step 3: Verify the binary supports `--remote`
+
+Before shelling to the CLI, verify the local `plan-executor` binary is recent
+enough to know the `--remote` flag. A PATH check alone is insufficient — an
+older binary on PATH will fail with `unexpected argument '--remote'` instead
+of a clear error.
+
+```bash
+plan-executor run pr-finalize --help 2>&1 | grep -q -- --remote
+```
+
+If `command -v plan-executor` fails OR the help output does not contain
+`--remote`, error with this message and exit:
+
+> plan-executor binary missing or out of date — does not support `--remote`.
+> Reinstall the latest:
+>
+>   bash -c "$(gh api 'repos/andreas-pohl-parloa/plan-executor/contents/install.sh?ref=main' --header 'Accept: application/vnd.github.raw')"
+>
+> Then restart the daemon: `plan-executor stop && plan-executor daemon`.
+
+Do NOT invoke `plan-executor --version` — the binary does not implement that
+flag.
+
+### Step 4: Shell to the Rust CLI
 
 Run:
 
@@ -202,10 +226,7 @@ Run:
 
 Capture the stdout — the CLI prints the execution PR URL on success.
 
-If `plan-executor` is not on PATH, error with a clear message: "plan-executor binary
-not found; install via `bash -c "$(gh api ...)"` or run `plan-executor:install`".
-
-### Step 4: Report the execution PR
+### Step 5: Report the execution PR
 
 Print to the user:
 - "Submitted pr-finalize for <owner>/<repo>#<N> to remote execution."
