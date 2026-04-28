@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://parloa.dev/plan-executor/skills/validate-execution-plan-non-interactive/input.schema.json",
+  "title": "validate-execution-plan-non-interactive input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plan_path",
+    "execution_root",
+    "changed_files",
+    "language",
+    "recipe_list",
+    "skip_code_review",
+    "state_file_path",
+    "execution_state",
+    "validation_state",
+    "validation_state_path",
+    "current_validation_attempt",
+    "prior_validation_notes",
+    "prior_helper_outcomes"
+  ],
+  "properties": {
+    "plan_path":          { "type": "string", "minLength": 1 },
+    "execution_root":     { "type": "string", "minLength": 1 },
+    "changed_files": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "language": {
+      "type": "string",
+      "enum": ["typescript", "python", "go", "rust", "unknown"]
+    },
+    "recipe_list": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "skip_code_review":           { "type": "boolean" },
+    "state_file_path":            { "type": "string", "minLength": 1 },
+    "execution_state":            { "type": "object" },
+    "validation_state":           { "type": ["object", "null"] },
+    "validation_state_path":      { "type": "string", "minLength": 1 },
+    "current_validation_attempt": { "type": "integer", "minimum": 1 },
+    "prior_validation_notes":     { "type": "object" },
+    "prior_helper_outcomes":      { "type": "object" },
+    "validator_output":           { "type": "string" },
+    "validation_fix_outputs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "review_rerun_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "next_step", "notes", "state_updates"],
+      "properties": {
+        "status":        { "type": "string", "enum": ["success", "fix_required", "blocked", "abort"] },
+        "next_step":     { "type": "string", "enum": ["proceed_to_validation", "dispatch_fix_wave", "escalate", "terminate"] },
+        "notes":         { "type": "string" },
+        "state_updates": { "type": "object" }
+      }
+    },
+    "post_cap_decision": {
+      "type": "string",
+      "enum": ["unset", "proceed", "abort"]
+    }
+  }
+}
