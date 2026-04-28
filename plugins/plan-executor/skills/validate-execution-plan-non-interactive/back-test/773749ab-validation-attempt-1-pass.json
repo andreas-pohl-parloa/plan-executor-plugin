@@ -1,0 +1,63 @@
+{
+  "run_id": "773749ab-validation-attempt-1-pass",
+  "helper": "validate-execution-plan-non-interactive",
+  "synthetic": false,
+  "input_observed": {
+    "plan_path": "/Users/andreas.pohl/workspace/code/claude-code-proxy/.my/plans/plan-2026-04-16-claude-opus-4-7-support.md",
+    "execution_root": "/Users/andreas.pohl/workspace/code/.my/worktrees/claude-code-proxy-opus-4-7-support-CCP-0",
+    "changed_files": [
+      "src/config/models.rs",
+      "src/config/pricing.rs"
+    ],
+    "language": "rust",
+    "recipe_list": [],
+    "skip_code_review": false,
+    "state_file_path": "/Users/andreas.pohl/workspace/code/.my/worktrees/claude-code-proxy-opus-4-7-support-CCP-0/.tmp-execute-plan-state.json",
+    "execution_state": {
+      "phase": "plan_validation",
+      "batch": 1,
+      "attempt": 1,
+      "branch": "feat/CCP-0-claude-opus-4-7-support",
+      "flags": {
+        "draftPr": false,
+        "merge": true,
+        "mergeAdmin": false,
+        "noPr": false,
+        "noWorktree": false,
+        "nonInteractive": true,
+        "skipCodeReview": false,
+        "skipPr": false
+      },
+      "jira": "CCP-0",
+      "planType": "Feature",
+      "reviewResult": "clean",
+      "waves_completed": 7
+    },
+    "validation_state": null,
+    "validation_state_path": "/Users/andreas.pohl/workspace/code/.my/worktrees/claude-code-proxy-opus-4-7-support-CCP-0/.tmp-validation-state.json",
+    "current_validation_attempt": 1,
+    "prior_validation_notes": {
+      "prior_phase": "review",
+      "review_outcome": "clean"
+    },
+    "prior_helper_outcomes": {
+      "review": {
+        "status": "success",
+        "attempts": 1
+      }
+    }
+  },
+  "output_observed": {
+    "status": "success",
+    "next_step": "proceed_to_pr",
+    "notes": "validation attempt 1: PASS; 0 gaps, 0 deviations; all 7 task commits validated against plan goals",
+    "state_updates": {
+      "validation_report_path": "/Users/andreas.pohl/workspace/code/.my/worktrees/claude-code-proxy-opus-4-7-support-CCP-0/.tmp-subtask-plan-validation-attempt-1-report.json",
+      "gaps": []
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "real input from job 773749ab (current_validation_attempt and prior_helper_outcomes inferred since the original kv-form invocation predates the schema requirement); output reconstructed from downstream evidence (pr-finalize was invoked after this)"
+}

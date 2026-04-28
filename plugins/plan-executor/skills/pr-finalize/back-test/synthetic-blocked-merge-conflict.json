@@ -1,0 +1,27 @@
+{
+  "run_id": "synthetic-blocked-merge-conflict",
+  "helper": "pr-finalize",
+  "synthetic": true,
+  "input_observed": {
+    "pr_link": "https://github.com/parloa/test-repo/pull/99",
+    "working_dir": "/abs/worktrees/feat-stale",
+    "merge_mode": "merge",
+    "mode": "foreground",
+    "summary_file": "/abs/worktrees/feat-stale/.tmp-pr-finalize-summary.md",
+    "log_file": "/abs/worktrees/feat-stale/.tmp-pr-finalize.log",
+    "max_runtime_secs": 1800
+  },
+  "output_observed": {
+    "status": "blocked",
+    "next_step": "wait_for_review",
+    "notes": "merge conflict on src/main.rs that the fixer could not auto-resolve; human rebase required",
+    "state_updates": {
+      "pr_state": "OPEN",
+      "bugbot_comments_addressed": 0
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "synthetic \u2014 exercises blocked path with merge conflict requiring human review"
+}

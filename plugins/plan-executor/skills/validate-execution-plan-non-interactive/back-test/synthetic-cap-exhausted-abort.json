@@ -1,0 +1,54 @@
+{
+  "run_id": "synthetic-cap-exhausted-abort",
+  "helper": "validate-execution-plan-non-interactive",
+  "synthetic": true,
+  "input_observed": {
+    "plan_path": "/abs/plans/plan-tough.md",
+    "execution_root": "/abs/exec-root-3",
+    "changed_files": [
+      "src/legacy.py"
+    ],
+    "language": "python",
+    "recipe_list": [],
+    "skip_code_review": false,
+    "state_file_path": "/abs/exec-root-3/.tmp-execute-plan-state.json",
+    "execution_state": {
+      "phase": "validation"
+    },
+    "validation_state": {
+      "phase": "plan_validation",
+      "validation_attempt": 5,
+      "history": "5 attempts, 1 outstanding gap"
+    },
+    "validation_state_path": "/abs/exec-root-3/.tmp-validation-state.json",
+    "current_validation_attempt": 5,
+    "prior_validation_notes": {
+      "attempts": 5,
+      "outstanding_gaps": 1
+    },
+    "prior_helper_outcomes": {
+      "review": {
+        "status": "success"
+      }
+    },
+    "post_cap_decision": "abort"
+  },
+  "output_observed": {
+    "status": "abort",
+    "next_step": "terminate",
+    "notes": "validation cap (5 attempts) exhausted; operator chose abort",
+    "state_updates": {
+      "validation_report_path": "/abs/exec-root-3/.tmp-subtask-plan-validation-attempt-5-report.json",
+      "gaps": [
+        {
+          "goal": "remove deprecated module",
+          "missing_evidence": "module still imported in 3 files"
+        }
+      ]
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "synthetic \u2014 exercises post-cap abort terminal path"
+}

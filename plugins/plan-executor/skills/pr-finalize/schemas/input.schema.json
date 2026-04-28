@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://parloa.dev/plan-executor/skills/pr-finalize/input.schema.json",
+  "title": "pr-finalize input (non-interactive)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pr_link",
+    "working_dir",
+    "merge_mode",
+    "mode",
+    "summary_file",
+    "log_file",
+    "max_runtime_secs"
+  ],
+  "properties": {
+    "pr_link": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "working_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "merge_mode": {
+      "type": "string",
+      "enum": ["none", "merge", "merge_admin"]
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["foreground", "fixer"]
+    },
+    "fixer_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "merge_conflicts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conflicting", "base_branch"],
+          "properties": {
+            "conflicting": { "type": "boolean" },
+            "base_branch": { "type": "string", "minLength": 1 }
+          }
+        },
+        "failed_checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "conclusion"],
+            "properties": {
+              "name":       { "type": "string", "minLength": 1 },
+              "conclusion": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "new_bugbot_comments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "body"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "body": { "type": "string" }
+            }
+          }
+        },
+        "unresolved_threads": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["thread_id", "body"],
+            "properties": {
+              "thread_id": { "type": "string", "minLength": 1 },
+              "body":      { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "summary_file": {
+      "type": "string",
+      "minLength": 1
+    },
+    "log_file": {
+      "type": "string",
+      "minLength": 1
+    },
+    "max_runtime_secs": {
+      "type": "integer",
+      "minimum": 60
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "mode": { "const": "fixer" } } },
+      "then": { "required": ["fixer_payload"] }
+    }
+  ]
+}

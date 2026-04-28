@@ -1,0 +1,51 @@
+{
+  "run_id": "synthetic-fixer-bugbot-fix-required",
+  "helper": "pr-finalize",
+  "synthetic": true,
+  "input_observed": {
+    "pr_link": "https://github.com/parloa/test-repo/pull/42",
+    "working_dir": "/abs/worktrees/feat-x",
+    "merge_mode": "merge",
+    "mode": "fixer",
+    "fixer_payload": {
+      "merge_conflicts": {
+        "conflicting": false,
+        "base_branch": "main"
+      },
+      "failed_checks": [
+        {
+          "name": "ci/lint",
+          "conclusion": "failure"
+        }
+      ],
+      "new_bugbot_comments": [
+        {
+          "path": "src/auth.ts",
+          "body": "FIX_REQUIRED: missing input validation"
+        }
+      ],
+      "unresolved_threads": [
+        {
+          "thread_id": "PRT_kw123",
+          "body": "please add a unit test"
+        }
+      ]
+    },
+    "summary_file": "/abs/worktrees/feat-x/.tmp-pr-finalize-summary.md",
+    "log_file": "/abs/worktrees/feat-x/.tmp-pr-finalize.log",
+    "max_runtime_secs": 1800
+  },
+  "output_observed": {
+    "status": "fix_required",
+    "next_step": "address_findings",
+    "notes": "fixer applied 1 bugbot fix; lint check still red after push; re-invoke after CI completes",
+    "state_updates": {
+      "pr_state": "OPEN",
+      "bugbot_comments_addressed": 1
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "synthetic \u2014 exercises fixer mode with bugbot comments and failed CI"
+}

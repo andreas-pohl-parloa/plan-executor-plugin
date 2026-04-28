@@ -1,0 +1,64 @@
+{
+  "run_id": "synthetic-triage-fix-required",
+  "helper": "run-reviewer-team-non-interactive",
+  "synthetic": true,
+  "input_observed": {
+    "mode": "triage",
+    "plan_context": "/abs/plans/plan-feature-x.md",
+    "execution_outputs": "Wave 2 produced 3 commits in src/handlers/auth.ts and src/services/user.ts",
+    "changed_files": [
+      "src/handlers/auth.ts",
+      "src/services/user.ts"
+    ],
+    "language": "typescript",
+    "recipe_list": [
+      "typescript-services:production-code-recipe"
+    ],
+    "prior_review_context": {
+      "attempts": [],
+      "findings": []
+    },
+    "execution_root": "/abs/exec-root",
+    "attempt": 1,
+    "reviewer_outputs": {
+      "claude": "FIX_REQUIRED: src/handlers/auth.ts:42 \u2014 missing input validation on user.id",
+      "codex": "no findings",
+      "gemini": "no findings",
+      "security": "FIX_REQUIRED: src/services/user.ts:58 \u2014 sql injection via string concatenation"
+    }
+  },
+  "output_observed": {
+    "status": "fix_required",
+    "next_step": "dispatch_fix_wave",
+    "notes": "attempt 1: 2 FIX_REQUIRED findings (1 from claude, 1 from security); triaged",
+    "state_updates": {
+      "findings_path": "/abs/exec-root/.tmp-subtask-review-attempt-1-findings.json",
+      "reviewer_runs": [
+        {
+          "reviewer": "claude",
+          "exit_code": 0,
+          "findings_count": 1
+        },
+        {
+          "reviewer": "codex",
+          "exit_code": 0,
+          "findings_count": 0
+        },
+        {
+          "reviewer": "gemini",
+          "exit_code": 0,
+          "findings_count": 0
+        },
+        {
+          "reviewer": "security",
+          "exit_code": 0,
+          "findings_count": 1
+        }
+      ]
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "synthetic \u2014 exercises triage mode with FIX_REQUIRED findings"
+}
