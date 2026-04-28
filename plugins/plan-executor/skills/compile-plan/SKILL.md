@@ -1,7 +1,7 @@
 ---
 name: plan-executor:compile-plan
 description: Use ONLY when the orchestrator or a tooling subprocess needs to transform a plan-executor plan markdown file into a schema-validated `tasks.json` manifest + per-task prompt files. One-shot compiler. No phase transitions, no state management, no handoff emission.
-argument-hint: [plan-path] [schema-path] [output-dir] [meta-json-path]
+argument-hint: [plan-path] [schema-path] [output-dir] [meta-json-path] [findings-json-path]
 ---
 
 <SUBAGENT-STOP>
@@ -15,6 +15,7 @@ This skill is invoked from a Claude session at compile time (typically chained f
 - `$2` — absolute path to `tasks.schema.json`. Required.
 - `$3` — absolute output directory for `tasks.json` and `tasks/*.md`. Required. Created if missing.
 - `$4` — absolute path to the `meta.json` sidecar produced by `plan-executor:handover`. Required.
+- `$5` — absolute path to a `findings.json` file. **Optional**. When present, the skill operates in APPEND mode: reads the existing `tasks.json` from `$3`, reads the findings, emits NEW fix-waves with IDs ≥ 100 that address the findings, writes an updated `tasks.json` that preserves all original waves + appends fix-waves.
 
 # Task: compile a plan-executor plan into a tasks.json manifest
 
@@ -32,6 +33,34 @@ Your output directory is `<output-dir>`. Create it if it does not exist. Write:
 
 - `<output-dir>/tasks.json` — the manifest.
 - `<output-dir>/tasks/task-<id>.md` — one prompt file per task, one file per entry in `tasks` of the manifest.
+
+## APPEND mode (fix-loop)
+
+When `$5` (findings-json-path) is provided, the skill switches from initial-compile to APPEND mode. Procedure:
+
+1. Read `<output-dir>/tasks.json` — it MUST already exist; it is the manifest from a prior compile.
+2. Read `$5` — a JSON document conforming to `findings.schema.json`.
+3. Emit NEW fix-waves that address the findings.
+
+### APPEND-mode rules
+
+1. Existing `waves` and `tasks` MUST be preserved verbatim. Do not renumber. Do not drop.
+2. New fix-wave IDs start at `100` if no fix-waves yet exist in the manifest. Otherwise: `max(existing fix-wave IDs) + 1`.
+3. Each new fix-wave's `depends_on` MUST include the ID of the **last implementation wave** in the existing manifest. This guarantees fixes run after the original work.
+4. Each new fix-wave's `kind` MUST be `"fix"`.
+5. Each finding becomes one task (or fewer if multiple findings collapse into a single coherent fix — skill's judgment).
+6. New task IDs must not collide with existing task IDs. Suggested convention: `fix-<wave-id>-<n>` (e.g. `fix-100-1`, `fix-100-2`).
+7. Each new task entry needs `prompt_file`, `agent_type` (default `claude`), and `description`. Each new task's `prompt_file` MUST exist on disk under `<output-dir>/tasks/`.
+8. The fix-task prompt body must be self-contained: copy the finding's `description`, `category`, `severity`, `files`, and any `suggested_fix` into the prompt so the sub-agent can fix it from this file alone.
+9. The Pass 4 emit + validate checks (JSON parses, every task_id resolves, every depends_on resolves, DAG acyclic, etc.) STILL APPLY. Re-run Pass 5 (`plan-executor validate`) after rewrite. Same 3-attempt retry budget.
+
+In APPEND mode, do NOT re-do Pass 2 (task extraction from the plan markdown). Trust the existing manifest's `tasks` and `waves` and only ADD to them.
+
+After APPEND-mode rewrite, the output contract line is the same:
+
+```
+COMPILED: <output-dir>/tasks.json
+```
 
 ## Procedure
 

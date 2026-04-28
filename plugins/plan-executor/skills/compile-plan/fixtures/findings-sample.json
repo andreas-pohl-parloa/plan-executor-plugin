@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "major",
+      "category": "error-handling",
+      "description": "append_fix_waves swallows JSON parse errors from findings.json instead of returning a structured error. A malformed findings file should fail loudly so the orchestrator can surface it; silently continuing would leave the manifest unchanged with no signal.",
+      "files": ["src/compile.rs"],
+      "suggested_fix": "Return Err(CompileError::FindingsParse(io_err)) and propagate. Add a unit test that feeds in invalid JSON and asserts the error variant."
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "category": "naming",
+      "description": "The Finding struct field `id` shadows the Rust prelude's notion of identity. Rename to `finding_id` for clarity at call sites.",
+      "files": ["src/finding.rs"]
+    },
+    {
+      "id": "F3",
+      "severity": "nit",
+      "category": "documentation",
+      "description": "compile-plan SKILL.md APPEND-mode section does not state what happens when findings.json contains zero findings. Document explicitly that an empty findings array is valid and produces no new fix-wave."
+    }
+  ]
+}

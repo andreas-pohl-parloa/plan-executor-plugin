@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "plan": {
+    "goal": "Synthetic plan used to demonstrate fix-loop APPEND mode.",
+    "type": "feature",
+    "jira": "",
+    "target_repo": null,
+    "target_branch": null,
+    "path": "/tmp/fixtures/synthetic-plan.md",
+    "status": "READY",
+    "flags": {
+      "merge": false,
+      "merge_admin": false,
+      "skip_pr": false,
+      "skip_code_review": false,
+      "no_worktree": false,
+      "draft_pr": false
+    }
+  },
+  "waves": [
+    { "id": 1, "task_ids": ["1.1"], "depends_on": [], "kind": "implementation" },
+    { "id": 2, "task_ids": ["2.1"], "depends_on": [1], "kind": "implementation" },
+    { "id": 100, "task_ids": ["fix-100-1", "fix-100-2"], "depends_on": [2], "kind": "fix" },
+    { "id": 101, "task_ids": ["fix-101-1"], "depends_on": [100], "kind": "fix" }
+  ],
+  "tasks": {
+    "1.1": {
+      "prompt_file": "tasks/task-1.1.md",
+      "agent_type": "claude",
+      "description": "Implementation task 1.1 (synthetic)."
+    },
+    "2.1": {
+      "prompt_file": "tasks/task-2.1.md",
+      "agent_type": "claude",
+      "description": "Implementation task 2.1 (synthetic)."
+    },
+    "fix-100-1": {
+      "prompt_file": "tasks/task-fix-100-1.md",
+      "agent_type": "claude",
+      "description": "Fix major error-handling finding F1."
+    },
+    "fix-100-2": {
+      "prompt_file": "tasks/task-fix-100-2.md",
+      "agent_type": "claude",
+      "description": "Fix minor naming finding F2."
+    },
+    "fix-101-1": {
+      "prompt_file": "tasks/task-fix-101-1.md",
+      "agent_type": "claude",
+      "description": "Fix follow-up finding from second review round."
+    }
+  }
+}
