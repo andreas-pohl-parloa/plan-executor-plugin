@@ -258,10 +258,12 @@ collect_issues() {
     if [[ "$mergeable" == "false" ]]; then
         base_branch=$(gh api "repos/${OWNER}/${REPO}/pulls/${PR_NUMBER}" --jq '.base.ref' 2>/dev/null || echo "main")
         merge_conflicts="{\"conflicting\": true, \"base_branch\": \"${base_branch}\"}"
-        echo "[$(date +%H:%M:%S)] ⚠ PR has merge conflicts with ${base_branch}"
+        # Diagnostic on stderr — stdout is the channel that returns the
+        # PENDING/JSON sentinel to `issues=$(collect_issues)` in main.
+        echo "[$(date +%H:%M:%S)] ⚠ PR has merge conflicts with ${base_branch}" >&2
     elif [[ "$mergeable" == "null" || "$mergeable" == "unknown" || -z "$mergeable" ]]; then
         # GitHub hasn't finished computing mergeability yet — treat as PENDING.
-        echo "[$(date +%H:%M:%S)] Mergeability not yet computed (got: '${mergeable}'), waiting..."
+        echo "[$(date +%H:%M:%S)] Mergeability not yet computed (got: '${mergeable}'), waiting..." >&2
         echo "PENDING"
         return
     else
