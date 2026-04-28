@@ -1,7 +1,7 @@
 ---
 name: plan-executor:pr-finalize
 description: Fix bug comments on a PR
-argument-hint: [pr-link] [--fix] [--foreground] [--merge] [--merge-admin]
+argument-hint: [pr-link] [--fix] [--foreground] [--remote] [--pr N] [--merge] [--merge-admin]
 ---
 
 # PR Finalizer
@@ -11,18 +11,17 @@ lint errors, SonarCloud findings, and any other failing check.
 
 ## Mode Detection
 
-This skill operates in three modes based on arguments:
+This skill operates in four modes based on arguments:
 
-- **No `--fix`, no `--foreground`** → **Launcher mode**: starts a background monitor script that polls
-  the PR and dispatches non-interactive Claude sessions for fixes. Token-efficient.
-- **`--foreground`** → **Foreground mode**: same as Launcher mode but runs the monitor synchronously
-  (no `run_in_background`).
-- **`--fix`** → **Fixer mode**: called by the monitor script to fix specific issues.
+- No `--fix`, no `--foreground`, no `--remote` → **Launcher mode** (background bash monitor; default).
+- `--foreground` → **Foreground mode** (sync bash monitor; same as Launcher but blocking).
+- `--remote` → **Remote mode** (submit to GHA execution repo; non-blocking, runs on a runner).
+- `--fix` → **Fixer mode** (internal: called by the monitor for individual fix work).
 
-Optional merge flags (Launcher and Foreground modes):
-- **`--merge`** → merge the PR automatically after finalization via `gh pr merge --merge`
-- **`--merge-admin`** → merge with admin override via `gh pr merge --merge --admin`
-- **NEVER merge unless one of these flags was explicitly passed.**
+Optional merge flags (Launcher, Foreground, Remote modes):
+- `--merge` → merge after finalization via `gh pr merge --merge`
+- `--merge-admin` → merge with admin override via `gh pr merge --merge --admin`
+- NEVER merge unless one of these flags was explicitly passed.
 
 ---
 
@@ -163,6 +162,57 @@ When the command returns:
    - `--merge-admin` → `gh pr merge --merge --admin <PR_NUMBER> --repo <OWNER>/<REPO>`
    - If neither flag was passed: do NOT merge.
    - If merge fails, report the error but do not retry automatically.
+
+---
+
+## Remote Mode (`--remote`)
+
+Submits the pr-finalize job to GitHub Actions via the user's execution repo
+instead of running locally. Returns immediately with the execution PR URL. No
+local monitor, no fixer dispatch, no polling, no blocking.
+
+### Prerequisites
+
+- The user MUST have run `plan-executor remote-setup` first. The execution repo
+  must be configured before Remote mode can submit a job.
+- The `plan-executor` binary must be on `PATH`.
+
+### Flag rules
+
+- `--merge` and `--merge-admin` are mutually exclusive — same as the local CLI.
+  If both are passed, error immediately with a clear message and do not submit
+  the job.
+
+### Step 1: Identify the target PR
+
+Same as Launcher mode Step 1: `gh pr view --json number,headRefOid,url` from the
+current branch. If `--pr <N>` was explicitly passed in the args, use that instead
+(but still verify it exists via `gh pr view <N>`).
+
+### Step 2: Mark draft PRs ready first
+
+Same as Launcher mode Step 2: if the PR is a draft, run `gh pr ready <N>`. The
+remote runner will not finalize a draft.
+
+### Step 3: Shell to the Rust CLI
+
+Run:
+
+    plan-executor run pr-finalize --remote --pr <N> [--merge | --merge-admin]
+
+Capture the stdout — the CLI prints the execution PR URL on success.
+
+If `plan-executor` is not on PATH, error with a clear message: "plan-executor binary
+not found; install via `bash -c "$(gh api ...)"` or run `plan-executor:install`".
+
+### Step 4: Report the execution PR
+
+Print to the user:
+- "Submitted pr-finalize for <owner>/<repo>#<N> to remote execution."
+- "Execution PR: <URL>"
+- "Watch progress: gh pr checks <URL>"
+
+Then exit. The skill is done. The runner takes over from here.
 
 ---
 
