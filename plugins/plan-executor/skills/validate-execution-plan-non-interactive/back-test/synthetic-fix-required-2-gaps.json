@@ -1,0 +1,53 @@
+{
+  "run_id": "synthetic-fix-required-2-gaps",
+  "helper": "validate-execution-plan-non-interactive",
+  "synthetic": true,
+  "input_observed": {
+    "plan_path": "/abs/plans/plan-feature-y.md",
+    "execution_root": "/abs/exec-root",
+    "changed_files": [
+      "pkg/handler.go"
+    ],
+    "language": "go",
+    "recipe_list": [
+      "go-services:go-expert-recipe"
+    ],
+    "skip_code_review": false,
+    "state_file_path": "/abs/exec-root/.tmp-execute-plan-state.json",
+    "execution_state": {
+      "phase": "validation"
+    },
+    "validation_state": {
+      "phase": "plan_validation",
+      "validation_attempt": 1,
+      "validator_handoff": ".tmp-subtask-plan-validation-attempt-1.md"
+    },
+    "validation_state_path": "/abs/exec-root/.tmp-validation-state.json",
+    "current_validation_attempt": 1,
+    "prior_validation_notes": {},
+    "prior_helper_outcomes": {},
+    "validator_output": "STATUS: FAIL\nIMPLEMENTED:\n- handler wired up\nGAPS:\n- G1: plan goal 'expose /healthz' has no implementation evidence\n- G2: plan goal 'emit otel span on auth failure' has no test evidence\nDEVIATIONS:\n- none\nNOTES:\n- attempt 1 found 2 gaps"
+  },
+  "output_observed": {
+    "status": "fix_required",
+    "next_step": "dispatch_validation_fix",
+    "notes": "validation attempt 1: FAIL with 2 actionable GAPS; emitting batch of 2 validation-fix handoffs",
+    "state_updates": {
+      "validation_report_path": "/abs/exec-root/.tmp-subtask-plan-validation-attempt-1-report.json",
+      "gaps": [
+        {
+          "goal": "expose /healthz",
+          "missing_evidence": "no implementation in changed files"
+        },
+        {
+          "goal": "emit otel span on auth failure",
+          "missing_evidence": "no test asserts on span"
+        }
+      ]
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "synthetic \u2014 exercises FAIL with 2 actionable GAPS"
+}

@@ -1,0 +1,61 @@
+{
+  "run_id": "synthetic-triage-blocked-no-security",
+  "helper": "run-reviewer-team-non-interactive",
+  "synthetic": true,
+  "input_observed": {
+    "mode": "triage",
+    "plan_context": "/abs/plans/plan-bugfix.md",
+    "execution_outputs": "Single commit in pkg/api/handler.go",
+    "changed_files": [
+      "pkg/api/handler.go"
+    ],
+    "language": "go",
+    "recipe_list": [],
+    "prior_review_context": {
+      "attempts": [],
+      "findings": []
+    },
+    "execution_root": "/abs/exec-root-2",
+    "attempt": 2,
+    "reviewer_outputs": {
+      "claude": "no findings",
+      "codex": "no findings",
+      "gemini": "no findings",
+      "security": ""
+    }
+  },
+  "output_observed": {
+    "status": "blocked",
+    "next_step": "escalate",
+    "notes": "security reviewer output empty in triage mode (ProtocolViolation)",
+    "state_updates": {
+      "findings_path": "/abs/exec-root-2/.tmp-subtask-review-attempt-2-findings.json",
+      "reviewer_runs": [
+        {
+          "reviewer": "claude",
+          "exit_code": 0,
+          "findings_count": 0
+        },
+        {
+          "reviewer": "codex",
+          "exit_code": 0,
+          "findings_count": 0
+        },
+        {
+          "reviewer": "gemini",
+          "exit_code": 0,
+          "findings_count": 0
+        },
+        {
+          "reviewer": "security",
+          "exit_code": 1,
+          "findings_count": 0
+        }
+      ]
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "synthetic \u2014 exercises blocked path when security reviewer output missing"
+}

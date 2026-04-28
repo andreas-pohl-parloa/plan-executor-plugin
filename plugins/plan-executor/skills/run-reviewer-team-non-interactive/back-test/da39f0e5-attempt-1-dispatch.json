@@ -1,0 +1,56 @@
+{
+  "run_id": "da39f0e5-attempt-1-dispatch",
+  "helper": "run-reviewer-team-non-interactive",
+  "synthetic": false,
+  "input_observed": {
+    "mode": "dispatch",
+    "plan_context": "/Users/andreas.pohl/workspace/code/claude-code-proxy/.my/plans/plan-2026-04-16-claude-opus-4-7-support.md",
+    "execution_outputs": "7 commits, tasks 1 through 6 completed; integration tests passed",
+    "changed_files": [
+      "src/config/pricing.rs",
+      "src/config/models.rs"
+    ],
+    "language": "rust",
+    "recipe_list": [
+      "rust-services:production-code-recipe",
+      "rust-services:test-code-recipe"
+    ],
+    "prior_review_context": {},
+    "execution_root": "/Users/andreas.pohl/workspace/code/.my/worktrees/claude-code-proxy-opus-4-7-support-CCP-0",
+    "attempt": 1
+  },
+  "output_observed": {
+    "status": "success",
+    "next_step": "proceed",
+    "notes": "dispatch attempt 1: 4 reviewer prompt files written; security slot = security:big-toni; recipes resolved to [rust-services:production-code-recipe, rust-services:test-code-recipe]",
+    "state_updates": {
+      "findings_path": "/Users/andreas.pohl/workspace/code/.my/worktrees/claude-code-proxy-opus-4-7-support-CCP-0/.tmp-subtask-review-attempt-1-findings.json",
+      "reviewer_runs": [
+        {
+          "reviewer": "claude",
+          "exit_code": 0,
+          "findings_count": 0
+        },
+        {
+          "reviewer": "codex",
+          "exit_code": 0,
+          "findings_count": 0
+        },
+        {
+          "reviewer": "gemini",
+          "exit_code": 0,
+          "findings_count": 0
+        },
+        {
+          "reviewer": "security",
+          "exit_code": 0,
+          "findings_count": 0
+        }
+      ]
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "real run from job da39f0e5; output reconstructed from downstream evidence"
+}

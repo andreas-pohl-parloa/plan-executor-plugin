@@ -1,0 +1,76 @@
+{
+  "run_id": "synthetic-fix-required-fix-waves-appended",
+  "helper": "review-execution-output-non-interactive",
+  "synthetic": true,
+  "input_observed": {
+    "plan_path": "/abs/plans/plan-feature-x.md",
+    "execution_root": "/abs/exec-root",
+    "changed_files": [
+      "src/handlers/auth.ts"
+    ],
+    "language": "typescript",
+    "recipe_list": [
+      "typescript-services:production-code-recipe"
+    ],
+    "skip_code_review": false,
+    "state_file_path": "/abs/exec-root/.tmp-execute-plan-state.json",
+    "execution_state": {
+      "phase": "review",
+      "wave": 2
+    },
+    "review_state": null,
+    "review_state_path": "/abs/exec-root/.tmp-review-state.json",
+    "prior_review_notes": {},
+    "reviewer_team_result": {
+      "status": "fix_required",
+      "next_step": "dispatch_fix_wave",
+      "notes": "attempt 1: 2 FIX_REQUIRED",
+      "state_updates": {
+        "findings_path": "/abs/exec-root/.tmp-subtask-review-attempt-1-findings.json",
+        "reviewer_runs": [
+          {
+            "reviewer": "claude",
+            "exit_code": 0,
+            "findings_count": 1
+          },
+          {
+            "reviewer": "codex",
+            "exit_code": 0,
+            "findings_count": 0
+          },
+          {
+            "reviewer": "gemini",
+            "exit_code": 0,
+            "findings_count": 0
+          },
+          {
+            "reviewer": "security",
+            "exit_code": 0,
+            "findings_count": 1
+          }
+        ]
+      }
+    },
+    "compile_fix_waves_result": {
+      "exit_code": 0,
+      "appended_fix_wave_ids": [
+        100,
+        101
+      ],
+      "stderr": ""
+    }
+  },
+  "output_observed": {
+    "status": "fix_required",
+    "next_step": "dispatch_fix_wave",
+    "notes": "attempt 1: 2 FIX_REQUIRED items appended as fix-waves [100, 101]",
+    "state_updates": {
+      "triaged_findings_path": "/abs/exec-root/.tmp-review-triaged-findings.json",
+      "wave_id_for_fix": 100
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "synthetic \u2014 exercises fix_required path with compile_fix_waves resume"
+}

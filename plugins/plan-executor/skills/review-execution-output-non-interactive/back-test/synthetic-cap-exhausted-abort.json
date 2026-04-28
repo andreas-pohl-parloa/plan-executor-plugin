@@ -1,0 +1,56 @@
+{
+  "run_id": "synthetic-cap-exhausted-abort",
+  "helper": "review-execution-output-non-interactive",
+  "synthetic": true,
+  "input_observed": {
+    "plan_path": "/abs/plans/plan-stubborn.md",
+    "execution_root": "/abs/exec-root-3",
+    "changed_files": [
+      "src/legacy.py"
+    ],
+    "language": "python",
+    "recipe_list": [
+      "python-services:production-code-recipe"
+    ],
+    "skip_code_review": false,
+    "state_file_path": "/abs/exec-root-3/.tmp-execute-plan-state.json",
+    "execution_state": {
+      "phase": "review",
+      "wave": 5
+    },
+    "review_state": {
+      "review_attempt": 3,
+      "history": [
+        {
+          "attempt": 1,
+          "fix_required": 2
+        },
+        {
+          "attempt": 2,
+          "fix_required": 1
+        },
+        {
+          "attempt": 3,
+          "fix_required": 1
+        }
+      ]
+    },
+    "review_state_path": "/abs/exec-root-3/.tmp-review-state.json",
+    "prior_review_notes": {
+      "attempts": 3,
+      "outstanding_findings": 1
+    }
+  },
+  "output_observed": {
+    "status": "abort",
+    "next_step": "terminate",
+    "notes": "review cap (3 attempts) exhausted with 1 unresolved FIX_REQUIRED item; aborting per contract",
+    "state_updates": {
+      "triaged_findings_path": "/abs/exec-root-3/.tmp-review-triaged-findings.json"
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "synthetic \u2014 exercises terminal abort when review cap exhausted"
+}

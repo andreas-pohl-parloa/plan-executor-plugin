@@ -1,0 +1,28 @@
+{
+  "run_id": "773749ab-pr-105-merged",
+  "helper": "pr-finalize",
+  "synthetic": false,
+  "input_observed": {
+    "pr_link": "https://github.com/parloa/claude-code-proxy/pull/105",
+    "working_dir": "/Users/andreas.pohl/workspace/code/.my/worktrees/claude-code-proxy-opus-4-7-support-CCP-0",
+    "merge_mode": "merge",
+    "mode": "foreground",
+    "summary_file": "/Users/andreas.pohl/workspace/code/.my/worktrees/claude-code-proxy-opus-4-7-support-CCP-0/.tmp-pr-finalize-summary.md",
+    "log_file": "/Users/andreas.pohl/workspace/code/.my/worktrees/claude-code-proxy-opus-4-7-support-CCP-0/.tmp-pr-finalize.log",
+    "max_runtime_secs": 1800
+  },
+  "output_observed": {
+    "status": "success",
+    "next_step": "done",
+    "notes": "PR #105 marked ready-for-review; CI poll: 7 waiting + 3 clean polls in a row; merged via gh pr merge --merge",
+    "state_updates": {
+      "pr_state": "MERGED",
+      "merge_sha": "5deb4b291875bfaf15c785008695b2e8d76d0ed3",
+      "bugbot_comments_addressed": 0
+    }
+  },
+  "input_validates_against_schema": true,
+  "output_validates_against_schema": true,
+  "information_loss": "none",
+  "notes": "real run from job 773749ab; PR parloa/claude-code-proxy#105 merged at 2026-04-17T19:21:50Z; merge_sha verified from gh pr view"
+}
