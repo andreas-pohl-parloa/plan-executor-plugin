@@ -382,12 +382,41 @@ PR: ${OWNER}/${REPO}#${PR_NUMBER}
 HEAD SHA: ${HEAD_SHA}
 Working directory: ${WORKDIR}
 
-The following issues were detected on this PR. Fix ALL of them, run tests locally, push the fixes, and resolve any review threads you addressed.
+You are running in a tight fix-and-poll loop. Every commit you push will
+trigger another round of CI + automated reviewers. To converge, each
+session MUST be the SMALLEST POSSIBLE change that addresses the
+findings below — nothing more.
+
+Hard rules (non-negotiable):
+  1. Make the smallest change that resolves each finding. Inline the fix
+     where the finding points; do NOT refactor unrelated code, do NOT
+     restructure adjacent functions, do NOT thread parameters through
+     call chains "while you're here". A 4-function refactor in response
+     to a single review nit is a defect of this loop, not a feature.
+  2. Do NOT add tests unless the finding explicitly demands one (e.g.
+     "missing test for X"). The PR's existing tests are sufficient
+     unless a reviewer named a gap.
+  3. For automated reviewers (cursor, bugbot, sonarqubecloud): if you
+     have already pushed 2+ commits addressing earlier findings from the
+     SAME reviewer in this PR, the next round of nits from that reviewer
+     should be REPLIED to (explaining your stance, e.g. "deliberate per
+     CPL-…", "out of scope for this PR", "tracked in <ticket>") and
+     resolved — not fixed in code. Code churn drives more nits.
+  4. SonarCloud Security Hotspots are advisory items requiring UI
+     review, NOT failing checks. If the only finding is a Hotspot, REPLY
+     on the SonarCloud bot comment summarising why it is acceptable, do
+     NOT change code, and resolve.
+  5. If a finding looks unrelated to this PR's diff (\`gh pr diff
+     --name-only\` ∩ failure source = ∅), report UNRELATED and exit
+     without committing, per the skill's anti-pattern guidance.
+
+After applying the minimal fix, push, then reply+resolve every thread
+you touched. Do NOT keep iterating on adjacent improvements.
 
 Merge conflicts:
 ${merge_conflicts}
 
-Failed checks (these are code failures, not infrastructure issues):
+Failed checks (code failures only — infra checks are filtered out):
 ${failed_checks}
 
 New Bugbot comments (since last push):
@@ -728,8 +757,15 @@ main() {
                 LAST_PUSH_EPOCH=$(date +%s)
                 infra_retry_count=0  # reset infra retries after a code push
                 no_progress_count=0  # reset — the fix produced a new commit
-                # Reset seen threads when code changes — new threads may be different
-                seen_thread_ids=""
+                # Do NOT reset seen_thread_ids here. Resolved threads are
+                # filtered out by gh's unresolved-only query, so they
+                # naturally drop off the list without help. What we do
+                # need to remember across pushes is which threads the
+                # agent has already attempted: when an automated reviewer
+                # (cursor/bugbot) keeps creating fresh nitpick threads
+                # after each commit, the accumulated seen_thread_ids set
+                # is the only signal that lets the "all remaining threads
+                # were already attempted" termination branch fire.
                 echo "[$(date +%H:%M:%S)] Fix pushed. Will wait ${MIN_BUGBOT_WAIT_SECS}s for Bugbot before counting clean polls."
             else
                 no_progress_count=$((no_progress_count + 1))
