@@ -1,6 +1,6 @@
 ---
 name: plan-executor:handover
-description: Use ONLY when a plan needs to be ingested into the plan-executor pipeline. Detects the source format (superpowers, plan-executor markdown with flag headers, Claude Code planning output, plain markdown, GitHub issue text), collects executor metadata interactively when missing, and writes a meta.json sidecar consumable by plan-executor:compile-plan.
+description: Use ONLY when a plan needs to be ingested into the plan-executor pipeline. Detects the source format (superpowers, plan-executor markdown with flag headers, Claude Code planning output, plain markdown, GitHub issue text), collects executor metadata interactively when missing, writes a meta.json sidecar consumable by plan-executor:compile-plan, and finally asks the user which execution mode to dispatch (in-session sub-agents / non-interactive local / non-interactive remote, plus superpowers inline / sub-agent modes when superpowers is installed).
 argument-hint: [plan-path] [--type=<feature|bug|refactor|chore|docs|infra>] [--no-worktree] [--no-pr] [--draft-pr] [--merge] [--merge-admin] [--target-repo=<owner/repo>] [--target-branch=<branch>] [--jira=<TICKET>]
 ---
 
@@ -89,7 +89,46 @@ Print exactly one line on stdout:
 HANDOVER: <absolute-path-to-meta.json>
 ```
 
-Then exit. The next pipeline stage (`plan-executor:compile-plan`) reads the meta.json path from this line. Do not print anything else after this line — additional output corrupts the pipeline contract.
+This line is the contract for any downstream consumer parsing handover output (e.g. an automation that pipes `plan-executor:handover` into `plan-executor:compile-plan` directly). Do not print other text on the same line.
+
+After printing the contract line, continue into Pass 5.
+
+### Pass 5 — Choose execution mode
+
+Handover ingestion is done; the plan is ready to execute. Ask the user how they want to run it, then dispatch.
+
+**5a. Detect whether `superpowers` is available.**
+
+Use `Glob` to check for the path pattern `~/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/executing-plans/SKILL.md`. If at least one match exists, superpowers is available and you must offer modes 4 + 5. Otherwise restrict the question to modes 1 – 3.
+
+**5b. Ask via `AskUserQuestion`.**
+
+The single question is *"How do you want to run this plan?"*. Options (label / description) — present in this order, including 4 + 5 only when superpowers was detected:
+
+1. **plan-executor (in-session, sub-agents)** — runs `plan-executor:execute-plan` inside this Claude session; the orchestrator dispatches focused sub-agents per task wave.
+2. **plan-executor (non-interactive local)** — compiles the plan and runs `plan-executor execute --compiled-manifest <path>` synchronously in a foreground shell. No sub-agents in this session; the Rust scheduler drives the Claude/Codex/Gemini CLIs directly.
+3. **plan-executor (non-interactive remote)** — compiles the plan and submits it to the GitHub Actions execution repo via the existing `kind: plan` flow (push `plan.md` + `job-spec.json`, open execution PR, GHA runs `plan-executor execute` on a runner).
+4. *(superpowers only)* **superpowers (inline)** — hand the original plan markdown to `superpowers:executing-plans` and let it execute serially in this session.
+5. *(superpowers only)* **superpowers (sub-agents)** — hand the original plan markdown to `superpowers:subagent-driven-development` (the sub-agent-driven variant of executing-plans).
+
+**5c. Dispatch based on the answer.**
+
+For every plan-executor mode (1, 2, 3) you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3. It produces `<plan-dir>/tasks/tasks.json`. Capture that path; it's the input the next step needs.
+
+- **Mode 1** — Invoke the `plan-executor:execute-plan` skill, passing the compiled-manifest path (`--compiled-manifest <tasks.json>`). That skill becomes the orchestrator and takes over from here.
+- **Mode 2** — Run `plan-executor execute --compiled-manifest <tasks.json>` synchronously via the `Bash` tool. Stream the output; the user is watching live. Do not background it.
+- **Mode 3** — Remote plan execution does not yet have a single-command client. Print the next-step block exactly:
+  ```
+  REMOTE_NEXT_STEPS:
+    1. Push plan.md + job-spec.json to the execution repo (job-spec.json must contain `kind: "plan"` and the plan flags).
+    2. Open the execution PR (label: pr-finalize is NOT required; the workflow dispatches on `kind`).
+    3. The GHA workflow at docs/remote-execution/execute-plan.yml will run `plan-executor execute` on the runner.
+  ```
+  Then exit. Do not attempt the multi-step `gh api` flow inline — it is brittle and the user typically prefers to drive it.
+- **Mode 4** — Invoke the `superpowers:executing-plans` skill, passing the original plan markdown path (NOT meta.json — superpowers reads the plan directly).
+- **Mode 5** — Invoke the `superpowers:subagent-driven-development` skill, passing the original plan markdown path.
+
+In all modes, after dispatching you yield control to the chosen executor. Do not continue with handover-level reporting; the executor's own contract takes over.
 
 ## Errors
 
