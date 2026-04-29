@@ -387,28 +387,60 @@ trigger another round of CI + automated reviewers. To converge, each
 session MUST be the SMALLEST POSSIBLE change that addresses the
 findings below — nothing more.
 
+────────────────────────────────────────────────────────────────────
+STEP 1 — TRIAGE FIRST. (Mandatory. Do this BEFORE editing any code.)
+────────────────────────────────────────────────────────────────────
+
+For EVERY finding listed at the bottom of this prompt — every failed
+check, every Bugbot comment, every unresolved review thread — print one
+classification line in this exact form before doing anything else:
+
+  TRIAGE: <source>#<id-or-rule> → <FIX_REQUIRED|REJECTED|DEFERRED> — <one-sentence reason>
+
+Definitions:
+  • FIX_REQUIRED — real, in-scope defect or compliance violation. The
+    code MUST change to resolve it.
+  • REJECTED    — invalid, out-of-scope, false positive, advisory-only
+    (e.g. SonarCloud Security Hotspot), or based on incorrect
+    assumptions. Do NOT change code; REPLY on the thread/comment with
+    the reason and resolve.
+  • DEFERRED    — real but intentionally left for a follow-up (must
+    name a tracking ticket or link). REPLY on the thread with the
+    rationale and the ticket, resolve.
+
+After printing the TRIAGE block:
+  • Code changes ONLY for FIX_REQUIRED items.
+  • Reply+resolve for REJECTED and DEFERRED items.
+  • If the entire TRIAGE block contains zero FIX_REQUIRED items, do
+    NOT commit. Reply+resolve everything and exit.
+
+────────────────────────────────────────────────────────────────────
+STEP 2 — APPLY MINIMAL FIXES (FIX_REQUIRED items only).
+────────────────────────────────────────────────────────────────────
+
 Hard rules (non-negotiable):
-  1. Make the smallest change that resolves each finding. Inline the fix
-     where the finding points; do NOT refactor unrelated code, do NOT
-     restructure adjacent functions, do NOT thread parameters through
-     call chains "while you're here". A 4-function refactor in response
-     to a single review nit is a defect of this loop, not a feature.
+  1. Make the smallest change that resolves each FIX_REQUIRED finding.
+     Inline the fix where the finding points; do NOT refactor unrelated
+     code, do NOT restructure adjacent functions, do NOT thread
+     parameters through call chains "while you're here". A 4-function
+     refactor in response to a single review nit is a defect of this
+     loop, not a feature.
   2. Do NOT add tests unless the finding explicitly demands one (e.g.
      "missing test for X"). The PR's existing tests are sufficient
      unless a reviewer named a gap.
-  3. For automated reviewers (cursor, bugbot, sonarqubecloud): if you
-     have already pushed 2+ commits addressing earlier findings from the
-     SAME reviewer in this PR, the next round of nits from that reviewer
-     should be REPLIED to (explaining your stance, e.g. "deliberate per
-     CPL-…", "out of scope for this PR", "tracked in <ticket>") and
-     resolved — not fixed in code. Code churn drives more nits.
+  3. Repeat-offender rule: for automated reviewers (cursor, bugbot,
+     sonarqubecloud), if you have already pushed 2+ commits addressing
+     earlier findings from the SAME reviewer in this PR, classify the
+     next round of nits from that reviewer as REJECTED with reason
+     "automated reviewer iterating; closing nitpick loop" and reply+
+     resolve — do NOT change code. Code churn drives more nits.
   4. SonarCloud Security Hotspots are advisory items requiring UI
-     review, NOT failing checks. If the only finding is a Hotspot, REPLY
-     on the SonarCloud bot comment summarising why it is acceptable, do
-     NOT change code, and resolve.
+     review, not failing checks. Always REJECTED unless the same finding
+     is also reported by a different reviewer as FIX_REQUIRED.
   5. If a finding looks unrelated to this PR's diff (\`gh pr diff
-     --name-only\` ∩ failure source = ∅), report UNRELATED and exit
-     without committing, per the skill's anti-pattern guidance.
+     --name-only\` ∩ failure source = ∅), classify it REJECTED with
+     reason "unrelated to PR diff", reply on the thread, and exit
+     without committing.
 
 After applying the minimal fix, push, then reply+resolve every thread
 you touched. Do NOT keep iterating on adjacent improvements.
