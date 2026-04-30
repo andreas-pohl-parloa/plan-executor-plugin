@@ -53,7 +53,8 @@ Required fields (snake_case):
   - Override from header checkbox `[x]` when present.
   - Override from CLI flag (e.g. `--no-worktree` sets `no_worktree=true`, `--no-pr` sets `skip_pr=true`).
   - When interactive, ask only for flags that were not extracted from header or CLI.
-- `execution_mode` (enum: `local` / `remote`, default `local`) — determines whether the Rust binary executes the plan in-process or submits it to the configured `remote_repo` for GitHub Actions to run. Default to `local`. Pass 5 may flip it to `remote` based on the user's mode selection. Do NOT extract this from the plan markdown — `**execution:**` plan-markdown headers are no longer read by the binary; the manifest is the source of truth.
+
+`execution_mode` is intentionally NOT collected here. Pass 5's mode question (in-session sub-agents / non-interactive local / non-interactive remote / superpowers variants) covers the same information; collecting it twice would be redundant. The compiled manifest defaults `plan.execution_mode` to `"local"`, and Pass 5's Mode 3 dispatch flips it to `"remote"` directly in `tasks.json` after compile-plan runs.
 
 ### Pass 3 — Emit meta.json
 
@@ -67,7 +68,6 @@ Write `<plan-path>.meta.json` (same directory as the plan, filename = plan filen
   "jira": "",
   "target_repo": null,
   "target_branch": null,
-  "execution_mode": "local",
   "flags": {
     "merge": false,
     "merge_admin": false,
@@ -115,15 +115,15 @@ The single question is *"How do you want to run this plan?"*. Options (label / d
 
 **5c. Dispatch based on the answer.**
 
-For every plan-executor mode (1, 2, 3) you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3. It produces `<plan-dir>/tasks/tasks.json`. The manifest's `plan.execution_mode` field is the binary's source of truth for local vs. remote dispatch — `compile-plan` propagates that field from `meta.json`. The plan markdown is NOT read for execution flags any more.
+For every plan-executor mode (1, 2, 3) you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3. It produces `<plan-dir>/tasks/tasks.json`. The compiled manifest carries `plan.execution_mode` (defaults to `"local"`); the binary reads that field to choose between local execution and GHA submission. The plan markdown is NOT read for execution flags any more.
 
-For Mode 3, before invoking compile-plan, rewrite `meta.json` to set `"execution_mode": "remote"` (the rest of the document stays as written in Pass 3). Use the `Edit` or `Write` tool. Modes 1 and 2 leave `execution_mode` at its default `"local"`.
-
-How the binary dispatches: `plan-executor execute <tasks.json> --foreground` reads `plan.execution_mode` from the manifest. When it equals `"remote"`, the binary routes to `trigger_remote` (push plan + job-spec to the configured `remote_repo`, open execution PR; GHA runs `plan-executor execute` on a runner). The `PLAN_EXECUTOR_LOCAL=1` env var force-overrides to local for cases where you want to run a remote-tagged manifest locally without rewriting it. Modes 2 and 3 use the **same command** — only the manifest's `execution_mode` differs.
+How the binary dispatches: `plan-executor execute <tasks.json> --foreground` reads `plan.execution_mode` from the manifest. When it equals `"remote"`, the binary routes to `trigger_remote` (push plan + job-spec to the configured `remote_repo`, open execution PR; GHA runs `plan-executor execute` on a runner). The `PLAN_EXECUTOR_LOCAL=1` env var force-overrides to local for cases where you want to run a remote-tagged manifest locally without rewriting it. Modes 2 and 3 use the **same command** — only the manifest's `execution_mode` value differs.
 
 - **Mode 1** — Invoke the `plan-executor:execute-plan` skill, passing `--compiled-manifest <tasks.json>`. That skill becomes the orchestrator and takes over from here.
-- **Mode 2 (non-interactive local)** — Run `PLAN_EXECUTOR_LOCAL=1 plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The env var forces local even if `execution_mode` says remote. Stream output; do not background.
-- **Mode 3 (non-interactive remote)** — Edit `meta.json` to set `execution_mode: "remote"`, re-run `plan-executor:compile-plan` so the manifest reflects the change, then run `plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The binary reads `plan.execution_mode = "remote"` and submits to the configured execution repo.
+- **Mode 2 (non-interactive local)** — Run `PLAN_EXECUTOR_LOCAL=1 plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The env var forces local even if `execution_mode` somehow says remote. Stream output; do not background.
+- **Mode 3 (non-interactive remote)** — After compile-plan finishes, flip the manifest's execution mode to remote, then run.
+  - Edit `tasks.json` to set `"execution_mode": "remote"` inside the `plan` object. Find the line `"execution_mode": "local"` (compile-plan wrote it) and replace `"local"` with `"remote"`. Use the `Edit` tool.
+  - Run `plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The binary reads `plan.execution_mode = "remote"` and submits to the configured execution repo.
 
   Prerequisite: `~/.plan-executor/config.json` must contain `remote_repo`. If absent, the binary exits with `remote execution requires 'remote_repo' in config — run 'plan-executor remote-setup'`. Surface that error to the user verbatim.
 
