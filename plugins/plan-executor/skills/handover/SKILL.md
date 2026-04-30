@@ -120,9 +120,9 @@ If the engine is `plan-executor`, ask:
 
 > *"How do you want to run this plan with plan-executor?"*
 >
-> 1. **in-session, sub-agents** — `plan-executor:execute-plan` runs inside this Claude session; the orchestrator dispatches focused sub-agents per task wave.
-> 2. **non-interactive local** — submits to the local plan-executor daemon. The daemon owns scheduling, persistence, and output streaming; tail with `plan-executor output -f <job-id>`.
-> 3. **non-interactive remote** — submits to the configured remote execution repo. GitHub Actions runs the plan on a runner; the user tracks progress via the execution PR.
+> 1. **In-Session** — `plan-executor:execute-plan` runs inside this Claude session; the orchestrator dispatches focused sub-agents per task wave.
+> 2. **Daemon** — submits to the local plan-executor daemon. The daemon owns scheduling, persistence, and output streaming; tail with `plan-executor output -f <job-id>`.
+> 3. **Remote** — submits to the configured remote execution repo. GitHub Actions runs the plan on a runner; the user tracks progress via the execution PR.
 
 If the engine is `superpowers`, ask:
 
@@ -139,9 +139,9 @@ Binary command convention:
   - `plan-executor execute <tasks.json>` (no `--foreground`) → submits to the local daemon for normal execution.
   - `plan-executor execute <tasks.json> --foreground` → reads `plan.execution_mode` from the manifest; when `"remote"` the binary routes to `trigger_remote` (push plan + job-spec to the configured `remote_repo`, open execution PR; GHA runs `plan-executor execute` on a runner). The `--foreground` flag is the dispatch path used for remote submission, NOT a local-execution alternative.
 
-- **plan-executor / in-session, sub-agents** — Invoke the `plan-executor:execute-plan` skill, passing `--compiled-manifest <tasks.json>`. That skill becomes the orchestrator and takes over from here.
-- **plan-executor / non-interactive local** — Run `plan-executor execute <tasks.json>` via `Bash`. The CLI submits to the daemon and returns the job id; tail with `plan-executor output -f <job-id>` if live output is wanted. Daemon must be running — if not, `plan-executor ensure` starts it.
-- **plan-executor / non-interactive remote** — After compile-plan finishes, flip the manifest's execution mode to remote, then run via the foreground dispatch path:
+- **plan-executor / In-Session** — Invoke the `plan-executor:execute-plan` skill, passing `--compiled-manifest <tasks.json>`. That skill becomes the orchestrator and takes over from here.
+- **plan-executor / Daemon** — Run `plan-executor execute <tasks.json>` via `Bash`. The CLI submits to the daemon and returns the job id; tail with `plan-executor output -f <job-id>` if live output is wanted. Daemon must be running — if not, `plan-executor ensure` starts it.
+- **plan-executor / Remote** — After compile-plan finishes, flip the manifest's execution mode to remote, then run via the foreground dispatch path:
   - Edit `tasks.json` to set `"execution_mode": "remote"` inside the `plan` object. Find the line `"execution_mode": "local"` (compile-plan wrote it) and replace `"local"` with `"remote"`. Use the `Edit` tool.
   - Run `plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The binary reads `plan.execution_mode = "remote"` and submits to the configured execution repo.
 
