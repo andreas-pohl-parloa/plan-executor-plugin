@@ -54,7 +54,7 @@ Required fields (snake_case):
   - Override from CLI flag (e.g. `--no-worktree` sets `no_worktree=true`, `--no-pr` sets `skip_pr=true`).
   - When interactive, ask only for flags that were not extracted from header or CLI.
 
-`execution_mode` is intentionally NOT collected here. Pass 5's mode question (in-session sub-agents / non-interactive local / non-interactive remote / superpowers variants) covers the same information; collecting it twice would be redundant. The compiled manifest defaults `plan.execution_mode` to `"local"`, and Pass 5's Mode 3 dispatch flips it to `"remote"` directly in `tasks.json` after compile-plan runs.
+`execution_mode` is NOT asked here. Pass 5 asks the user which engine + mode to run. Pass 3 writes `meta.json` with `execution_mode` set to `"local"` as a default; if Pass 5's plan-executor mode answer is Remote, Pass 5 then rewrites `meta.json` to set `execution_mode` to `"remote"` BEFORE invoking compile-plan, so compile-plan emits the right value into `tasks.json` on its first pass — no post-compile manifest edit.
 
 ### Pass 3 — Emit meta.json
 
@@ -68,6 +68,7 @@ Write `<plan-path>.meta.json` (same directory as the plan, filename = plan filen
   "jira": "",
   "target_repo": null,
   "target_branch": null,
+  "execution_mode": "local",
   "flags": {
     "merge": false,
     "merge_admin": false,
@@ -79,7 +80,7 @@ Write `<plan-path>.meta.json` (same directory as the plan, filename = plan filen
 }
 ```
 
-`plan_path` MUST be the absolute, resolved (symlink-followed) path of `$1`. Booleans MUST be JSON booleans, not strings. Empty/absent strings emit `""` or `null` per their schema position above.
+`plan_path` MUST be the absolute, resolved (symlink-followed) path of `$1`. Booleans MUST be JSON booleans, not strings. Empty/absent strings emit `""` or `null` per their schema position above. `execution_mode` MUST be `"local"` here; Pass 5 may rewrite it to `"remote"` after the user answers.
 
 If the file already exists, overwrite it (handover is idempotent).
 
@@ -137,9 +138,11 @@ Use the verbatim superpowers skill names (`subagent-driven-development`, `execut
 
 **5d. Dispatch based on the engine + mode pair.**
 
-For every plan-executor mode you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3.
+For every plan-executor mode, sequence the steps as: (a) update meta.json if needed, (b) invoke compile-plan, (c) run the binary. Compile-plan reads `execution_mode` from meta.json and propagates it into `tasks.json`, so getting the meta.json right BEFORE compile means the manifest is correct on first write — no post-compile manifest edits.
 
-The compile-plan skill takes an `<output-dir>` argument; choose a per-plan path so concurrent plans in the same directory do not overwrite each other's manifests. Compute it as:
+For the **Remote** plan-executor mode, before invoking compile-plan, rewrite `meta.json` to set `"execution_mode": "remote"`. The other six fields stay as Pass 3 wrote them. Use the `Edit` tool. For In-Session and Daemon modes, leave `meta.json` as written (`execution_mode` stays `"local"`).
+
+Then invoke `plan-executor:compile-plan` with the meta.json path. The compile-plan skill takes an `<output-dir>` argument; choose a per-plan path so concurrent plans in the same directory do not overwrite each other's manifests. Compute it as:
 
 ```
 <output-dir> = <plan-dir>/<plan-stem>
@@ -152,7 +155,7 @@ where `<plan-dir>` is the directory containing the plan markdown and `<plan-stem
 
 Do NOT default to `<plan-dir>/tasks/`; that path collides whenever a second plan is compiled in the same directory.
 
-The compiled manifest carries `plan.execution_mode` (always `"local"` from compile-plan); the Remote mode flips it to `"remote"` after compile. The plan markdown is NOT read for execution flags any more.
+The plan markdown is NOT read for execution flags any more — `meta.json` → `tasks.json` is the only path.
 
 Binary command convention:
   - `plan-executor execute <tasks.json>` (no `--foreground`) → submits to the local daemon for normal execution.
@@ -160,9 +163,7 @@ Binary command convention:
 
 - **plan-executor / In-Session** — Invoke the `plan-executor:execute-plan` skill, passing `--compiled-manifest <tasks.json>`. That skill becomes the orchestrator and takes over from here.
 - **plan-executor / Daemon** — Run `plan-executor execute <tasks.json>` via `Bash`. The CLI submits to the daemon and returns the job id; tail with `plan-executor output -f <job-id>` if live output is wanted. Daemon must be running — if not, `plan-executor ensure` starts it.
-- **plan-executor / Remote** — After compile-plan finishes, flip the manifest's execution mode to remote, then run via the foreground dispatch path:
-  - Edit `tasks.json` to set `"execution_mode": "remote"` inside the `plan` object. Find the line `"execution_mode": "local"` (compile-plan wrote it) and replace `"local"` with `"remote"`. Use the `Edit` tool.
-  - Run `plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The binary reads `plan.execution_mode = "remote"` and submits to the configured execution repo.
+- **plan-executor / Remote** — Run `plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The binary reads `plan.execution_mode = "remote"` (compile-plan picked it up from meta.json) and submits to the configured execution repo.
 
   Prerequisite: `~/.plan-executor/config.json` must contain `remote_repo`. If absent, the binary exits with `remote execution requires 'remote_repo' in config — run 'plan-executor remote-setup'`. Surface that error to the user verbatim.
 
