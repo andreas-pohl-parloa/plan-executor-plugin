@@ -163,7 +163,7 @@ Every validation-fix prompt must:
 6. If `STATUS: PASS`, return `success`.
 7. If `STATUS: FAIL`, extract GAPS and required DEVIATIONS, classify every failed item as actionable now or blocked with an explicit reason, and persist the parsed outcome.
 8. If there are no actionable fixes, return `blocked` with the documented blocking reason.
-9. If validation-fix handoffs for the current attempt have not been emitted yet, generate focused fix prompts, emit the first validation-fix batch via `state_updates.handoffs[]` (one entry per fix prompt with sequential `index` values; all are `agent_type: "claude"`; `can_fail` defaults to `false`), persist state, and return `waiting_for_handoffs`. Self-check the full envelope with `plan-executor validate --schema=helper-output:validate-execution-plan -` before printing it (and `plan-executor validate --schema=handoffs -` if you only want to check the handoffs sub-array).
+9. If validation-fix handoffs for the current attempt have not been emitted yet, generate focused fix prompts, emit the first validation-fix batch via `state_updates.handoffs[]` (one entry per fix prompt with sequential `index` values; all are `agent_type: "claude"`; `can_fail` defaults to `false`), persist state, and return `waiting_for_handoffs`. Self-validate before printing per the **Envelope self-validation** section below.
 10. When triage re-entry surfaces fix outputs (`prior_handoff_outputs_path` set), read the JSON sidecar, walk the `output` field of every entry whose `index` matches an emitted fix prompt, process them, update persisted batch progress, and either emit the next validation-fix batch (another `waiting_for_handoffs` envelope) or continue.
 11. After all validation-fix batches for the current attempt are processed, require verification of the delegated changes.
 12. If validation fixes changed implementation and code review was not skipped, invoke `plan-executor:review-execution-output-non-interactive`, require `status: success`, and persist that re-review outcome before the next validation attempt starts.
@@ -196,6 +196,20 @@ Return a deterministic object or equivalent structured result with:
 - `next_step`: exact next orchestrator action
 - `notes`: concise carry-forward context, including validation attempt, unresolved GAPS, unresolved DEVIATIONS, batching progress, re-review outcome, and cap-summary context when present
 - `state_updates`: authoritative validation-state changes that the orchestrator must persist before another batch, resume point, or phase transition
+
+### Envelope self-validation
+
+**Self-validation is MANDATORY before emitting the envelope.** Pipe the full envelope through `plan-executor validate --schema=helper-output:validate-execution-plan -` (exits `0` with `VALID:` on success, `1` with one or more `ERROR:` lines on stderr on schema violation).
+
+Iterate until clean:
+
+1. Build the envelope per this SKILL.md.
+2. Pipe it through the validator.
+3. On exit `0`: emit the envelope on stdout — that is the protocol path.
+4. On exit `1`: read the `ERROR:` lines, fix the offending fields, and re-validate. Common causes: a `status` value not in the schema's enum, a required field missing under `state_updates`, a malformed nested shape, or extra closed-shape keys (the dispatch `state_updates` is closed; the triage `state_updates` accepts additional helper-owned persistence fields).
+5. If repeated iterations cannot produce a schema-clean envelope, that is a SKILL ↔ schema drift bug. Emit a `status: blocked` envelope whose `notes` carry the validator's `ERROR:` lines verbatim plus the offending envelope inline (use placeholder values like `"/dev/null"` for any required `minLength`-constrained string fields). Do NOT emit a known-broken envelope — the orchestrator fails fast on `blocked` with the diagnostic, while a broken envelope wastes the protocol-violation retry budget repeating the same shape.
+
+When self-checking only the handoffs sub-array (e.g. before nesting it under `state_updates.handoffs`), pipe just that array through `plan-executor validate --schema=handoffs -`.
 
 Status meanings:
 

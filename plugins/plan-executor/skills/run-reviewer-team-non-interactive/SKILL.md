@@ -161,7 +161,17 @@ Build one prompt per reviewer. Each prompt must include:
 5. Write the four prompt files to `execution_root`.
 6. Return `status: waiting_for_handoffs` with the structured handoff list in `state_updates.handoffs[]` (see Completion Contract). The orchestrator (plan-executor binary) reads that array, dispatches the four reviewers via its built-in dispatcher, persists each sub-agent's stdout/exit_code to a sidecar file, and re-invokes this skill with `prior_handoff_outputs_path` pointing at that sidecar — at which point you re-enter in triage mode.
 
-You SHOULD validate the full envelope before printing it by piping it through `plan-executor validate --schema=helper-output:run-reviewer-team -` (exits `0` with `VALID:` on success, `1` with one or more `ERROR:` lines on stderr on schema violation). If you only want to self-check the handoffs sub-array, pipe just that array through `plan-executor validate --schema=handoffs -`. The skill MUST emit the JSON envelope on stdout regardless — the validator is a self-check tool, not a substitute for the protocol.
+**Self-validation is MANDATORY before emitting the envelope.** Pipe the full envelope through `plan-executor validate --schema=helper-output:run-reviewer-team -` (exits `0` with `VALID:` on success, `1` with one or more `ERROR:` lines on stderr on schema violation).
+
+Iterate until clean:
+
+1. Build the envelope per this SKILL.md.
+2. Pipe it through the validator.
+3. On exit `0`: emit the envelope on stdout — that is the protocol path.
+4. On exit `1`: read the `ERROR:` lines, fix the offending fields, and re-validate. Common causes: a `status` value not in the schema's enum, a required field missing under `state_updates`, a malformed nested shape, or extra closed-shape keys (the dispatch `state_updates` is closed; the triage `state_updates` accepts additional helper-owned persistence fields).
+5. If repeated iterations cannot produce a schema-clean envelope, that is a SKILL ↔ schema drift bug. Emit a `status: blocked` envelope whose `notes` carry the validator's `ERROR:` lines verbatim plus the offending envelope inline (use placeholder values like `"/dev/null"` for any required `minLength`-constrained string fields). Do NOT emit a known-broken envelope — the orchestrator fails fast on `blocked` with the diagnostic, while a broken envelope wastes the protocol-violation retry budget repeating the same shape.
+
+When self-checking only the handoffs sub-array (e.g. before nesting it under `state_updates.handoffs`), pipe just that array through `plan-executor validate --schema=handoffs -`.
 
 The legacy `call sub-agent N (...)` text markers are NOT consumed by the Rust orchestrator — only `state_updates.handoffs[]` is. Do not emit those markers.
 
@@ -224,7 +234,7 @@ Concrete envelope shape:
 }
 ```
 
-Validate the full envelope before printing: `echo '<your full envelope>' | plan-executor validate --schema=helper-output:run-reviewer-team -` exits `0` with `VALID:` on success. To self-check just the handoffs sub-array, pipe it through `plan-executor validate --schema=handoffs -`.
+Self-validate the full envelope before printing — see the **Envelope self-validation** subsection in the Dispatch Mode section above for the iterate-until-clean contract. Briefly: `echo '<your full envelope>' | plan-executor validate --schema=helper-output:run-reviewer-team -` exits `0` + `VALID:` on success or `1` + `ERROR:` lines on schema violation; do not emit a known-broken envelope.
 
 ### `status: success`
 

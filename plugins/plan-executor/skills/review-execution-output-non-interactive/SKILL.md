@@ -120,7 +120,15 @@ Allowed `status` values:
 - `blocked`
 - `abort`
 
-You SHOULD self-check the full envelope before printing it: `echo '<envelope>' | plan-executor validate --schema=helper-output:review-execution-output -` exits `0` with `VALID:` on success, `1` with `ERROR:` lines on schema violation. The envelope must still be emitted on stdout regardless — the validator is a self-check, not part of the protocol.
+**Self-validation is MANDATORY before emitting the envelope.** Pipe the full envelope through `plan-executor validate --schema=helper-output:review-execution-output -` (exits `0` with `VALID:` on success, `1` with one or more `ERROR:` lines on stderr on schema violation).
+
+Iterate until clean:
+
+1. Build the envelope per this SKILL.md.
+2. Pipe it through the validator.
+3. On exit `0`: emit the envelope on stdout — that is the protocol path.
+4. On exit `1`: read the `ERROR:` lines, fix the offending fields, and re-validate. Common causes: a `status` value not in the schema's enum, a required field missing under `state_updates`, a malformed nested shape.
+5. If repeated iterations cannot produce a schema-clean envelope, that is a SKILL ↔ schema drift bug. Emit a `status: blocked` envelope whose `notes` carry the validator's `ERROR:` lines verbatim plus the offending envelope inline (use placeholder values like `"/dev/null"` for any required `minLength`-constrained string fields). Do NOT emit a known-broken envelope — the orchestrator fails fast on `blocked` with the diagnostic, while a broken envelope wastes the protocol-violation retry budget repeating the same shape.
 
 ### `status: success`
 Use when review is complete and no unresolved `FIX_REQUIRED` items remain.
