@@ -226,11 +226,11 @@ Concrete envelope shape:
 
 Validate before printing: `echo '<your handoffs array>' | plan-executor validate-handoffs -` exits 0 with `VALID:` on success.
 
-### `status: complete`
+### `status: success`
 
 Return after successful triage. Include:
 
-- `status: complete`
+- `status: success`
 - `reviewer_set` — list of the four reviewers used. For the security reviewer entry, record the actual skill used (`security:big-toni` or `plan-executor:lite-security-reviewer`).
 - `attempt_note` — free-text note about this run (e.g. first attempt, retry N). MUST mention the lite fallback when it was selected, the detected language, and any skipped Claude recipes.
 - `detected_language` — the resolved project language (`typescript` | `python` | `go` | `rust` | `unknown`).
