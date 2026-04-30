@@ -161,7 +161,7 @@ Build one prompt per reviewer. Each prompt must include:
 5. Write the four prompt files to `execution_root`.
 6. Return `status: waiting_for_handoffs` with the structured handoff list in `state_updates.handoffs[]` (see Completion Contract). The orchestrator (plan-executor binary) reads that array, dispatches the four reviewers via its built-in dispatcher, persists each sub-agent's stdout/exit_code to a sidecar file, and re-invokes this skill with `prior_handoff_outputs_path` pointing at that sidecar — at which point you re-enter in triage mode.
 
-You MAY validate your `state_updates.handoffs` payload before printing the envelope by piping it through `plan-executor validate-handoffs -` (exits 0 + `VALID:` on success, 1 + `ERROR:` on schema violation). The skill MUST emit the JSON envelope on stdout regardless — the validator is a self-check tool, not a substitute for the protocol.
+You SHOULD validate the full envelope before printing it by piping it through `plan-executor validate --schema=helper-output:run-reviewer-team -` (exits `0` with `VALID:` on success, `1` with one or more `ERROR:` lines on stderr on schema violation). If you only want to self-check the handoffs sub-array, pipe just that array through `plan-executor validate --schema=handoffs -`. The skill MUST emit the JSON envelope on stdout regardless — the validator is a self-check tool, not a substitute for the protocol.
 
 The legacy `call sub-agent N (...)` text markers are NOT consumed by the Rust orchestrator — only `state_updates.handoffs[]` is. Do not emit those markers.
 
@@ -224,7 +224,7 @@ Concrete envelope shape:
 }
 ```
 
-Validate before printing: `echo '<your handoffs array>' | plan-executor validate-handoffs -` exits 0 with `VALID:` on success.
+Validate the full envelope before printing: `echo '<your full envelope>' | plan-executor validate --schema=helper-output:run-reviewer-team -` exits `0` with `VALID:` on success. To self-check just the handoffs sub-array, pipe it through `plan-executor validate --schema=handoffs -`.
 
 ### `status: success`
 

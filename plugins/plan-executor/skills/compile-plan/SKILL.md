@@ -168,7 +168,7 @@ If any check fails, fix it and rewrite the manifest. Do not exit with an invalid
 After emitting `tasks.json`, run the Rust validator as a subprocess:
 
 ```
-plan-executor validate <output-dir>/tasks.json
+plan-executor validate --schema=tasks <output-dir>/tasks.json
 ```
 
 If exit 0 (`VALID:` line on stdout): proceed to the output contract.

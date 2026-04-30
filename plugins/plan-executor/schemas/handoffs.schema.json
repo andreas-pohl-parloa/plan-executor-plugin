@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://parloa.dev/plan-executor/handoffs.schema.json",
   "title": "Sub-agent handoff list",
-  "description": "Ordered list of sub-agents the helper is asking the orchestrator to dispatch via `handoff::dispatch_all`. Each entry maps 1:1 to a `Handoff` constructed by the Rust dispatcher — index, agent type, can-fail flag, and the absolute prompt-file path. Validates both the embedded `state_updates.handoffs` field on a `waiting_for_handoffs` envelope and the standalone payload accepted by `plan-executor validate-handoffs`.",
+  "description": "Ordered list of sub-agents the helper is asking the orchestrator to dispatch via `handoff::dispatch_all`. Each entry maps 1:1 to a `Handoff` constructed by the Rust dispatcher — index, agent type, can-fail flag, and the absolute prompt-file path. Validates both the embedded `state_updates.handoffs` field on a `waiting_for_handoffs` envelope and the standalone payload accepted by `plan-executor validate --schema=handoffs`.",
   "type": "array",
   "minItems": 1,
   "maxItems": 16,
