@@ -2,11 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://parloa.dev/plan-executor/skills/run-reviewer-team-non-interactive/input.schema.json",
   "title": "run-reviewer-team-non-interactive input",
-  "description": "Input envelope for the run-reviewer-team-non-interactive helper skill.",
+  "description": "Input envelope for the run-reviewer-team-non-interactive helper skill. Mode detection: when `prior_handoff_outputs_path` is empty or absent, the skill runs in dispatch mode (writes prompt files, emits state_updates.handoffs). When the field is a non-empty absolute path, the skill runs in triage mode (reads the sidecar JSON the orchestrator wrote with each sub-agent's stdout/exit_code, triages findings, returns the final envelope).",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "mode",
     "plan_context",
     "execution_outputs",
     "changed_files",
@@ -17,10 +16,6 @@
     "attempt"
   ],
   "properties": {
-    "mode": {
-      "type": "string",
-      "enum": ["dispatch", "triage"]
-    },
     "plan_context": {
       "type": "string",
       "minLength": 1
@@ -52,22 +47,9 @@
       "type": "integer",
       "minimum": 1
     },
-    "reviewer_outputs": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["claude", "security"],
-      "properties": {
-        "claude":   { "type": "string" },
-        "codex":    { "type": "string" },
-        "gemini":   { "type": "string" },
-        "security": { "type": "string" }
-      }
+    "prior_handoff_outputs_path": {
+      "description": "Absolute path to the JSON sidecar carrying the dispatched sub-agent outputs the orchestrator just collected. Empty string (or absent) on the first invocation (dispatch mode); non-empty on the re-invocation that follows a `waiting_for_handoffs` envelope, signaling triage mode. Sidecar shape: an array of `{ index, exit_code, output, stderr }` entries, one per dispatched handoff.",
+      "type": "string"
     }
-  },
-  "allOf": [
-    {
-      "if": { "properties": { "mode": { "const": "triage" } } },
-      "then": { "required": ["reviewer_outputs"] }
-    }
-  ]
+  }
 }
