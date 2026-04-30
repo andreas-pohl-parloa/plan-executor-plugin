@@ -128,8 +128,10 @@ If the engine is `superpowers`, ask:
 
 > *"How do you want to run this plan with superpowers?"*
 >
-> 1. **sub-agents** (recommended) — `superpowers:subagent-driven-development` dispatches focused sub-agents per task. Recommended on Claude Code where sub-agents are always available.
-> 2. **inline** — `superpowers:executing-plans` runs serially in this session. Choose this only when sub-agent dispatch would interfere with another in-flight workflow.
+> 1. **subagent-driven-development** (recommended) — dispatches focused sub-agents per task. Recommended on Claude Code where sub-agents are always available.
+> 2. **executing-plans** — runs serially in this session. Choose this only when sub-agent dispatch would interfere with another in-flight workflow.
+
+Use the verbatim superpowers skill names (`subagent-driven-development`, `executing-plans`) as labels — they're how superpowers identifies its own skills, and matching them keeps the dispatch step (which calls those skills by exact name) unambiguous.
 
 **5d. Dispatch based on the engine + mode pair.**
 
@@ -147,8 +149,8 @@ Binary command convention:
 
   Prerequisite: `~/.plan-executor/config.json` must contain `remote_repo`. If absent, the binary exits with `remote execution requires 'remote_repo' in config — run 'plan-executor remote-setup'`. Surface that error to the user verbatim.
 
-- **superpowers / sub-agents** — Invoke the `superpowers:subagent-driven-development` skill, passing the original plan markdown path (NOT meta.json — superpowers reads the plan directly).
-- **superpowers / inline** — Invoke the `superpowers:executing-plans` skill, passing the original plan markdown path.
+- **superpowers / subagent-driven-development** — Invoke the `superpowers:subagent-driven-development` skill, passing the original plan markdown path (NOT meta.json — superpowers reads the plan directly).
+- **superpowers / executing-plans** — Invoke the `superpowers:executing-plans` skill, passing the original plan markdown path.
 
 In all modes, after dispatching you yield control to the chosen executor. Do not continue with handover-level reporting; the executor's own contract takes over.
 
