@@ -137,7 +137,22 @@ Use the verbatim superpowers skill names (`subagent-driven-development`, `execut
 
 **5d. Dispatch based on the engine + mode pair.**
 
-For every plan-executor mode you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3. It produces `<plan-dir>/tasks/tasks.json`. The compiled manifest carries `plan.execution_mode` (always `"local"` from compile-plan); the remote mode flips it to `"remote"` after compile. The plan markdown is NOT read for execution flags any more.
+For every plan-executor mode you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3.
+
+The compile-plan skill takes an `<output-dir>` argument; choose a per-plan path so concurrent plans in the same directory do not overwrite each other's manifests. Compute it as:
+
+```
+<output-dir> = <plan-dir>/<plan-stem>
+```
+
+where `<plan-dir>` is the directory containing the plan markdown and `<plan-stem>` is the plan filename with the `.md` extension stripped. For example, plan `docs/superpowers/plans/2026-04-29-month-reporting-fix.md` produces:
+
+  - `docs/superpowers/plans/2026-04-29-month-reporting-fix/tasks.json`
+  - `docs/superpowers/plans/2026-04-29-month-reporting-fix/tasks/task-<id>.md`
+
+Do NOT default to `<plan-dir>/tasks/`; that path collides whenever a second plan is compiled in the same directory.
+
+The compiled manifest carries `plan.execution_mode` (always `"local"` from compile-plan); the Remote mode flips it to `"remote"` after compile. The plan markdown is NOT read for execution flags any more.
 
 Binary command convention:
   - `plan-executor execute <tasks.json>` (no `--foreground`) → submits to the local daemon for normal execution.
