@@ -13,6 +13,8 @@ It does NOT decide whether to fix, retry, or escalate. That logic belongs to the
 
 ## Required Inputs
 
+The full input contract lives at `schemas/input.schema.json` (next to this SKILL). Required fields:
+
 - `plan_context` — plan path or relevant plan excerpts that define the expected implementation
 - `execution_outputs` — description or summary of what was built or changed during execution
 - `changed_files` — list of files created or modified
@@ -22,17 +24,21 @@ It does NOT decide whether to fix, retry, or escalate. That logic belongs to the
 - `execution_root` — absolute path to the directory where prompt files are written (worktree root or repo root)
 - `attempt` — 1-based integer; used in prompt-file names to prevent clobbering across retry loops
 
+Optional (set by the orchestrator on triage re-entry, absent / empty string on first invocation):
+
+- `prior_handoff_outputs_path` — absolute path to the JSON sidecar the orchestrator wrote after dispatching the four reviewers. Each entry is `{ "index": <N>, "exit_code": <int>, "output": "<stdout>", "stderr": "<stderr>" }`. Non-empty value means **triage mode**.
+
 If any required input is missing, stop immediately and return `status: blocked` with the missing field in `notes`.
 
 ## Mode Detection
 
-This skill operates in two modes depending on whether reviewer outputs have been provided.
+This skill operates in two modes:
 
-**Dispatch mode** — no reviewer outputs present: write prompt files, emit handoffs, return `status: waiting_for_handoffs`.
+**Dispatch mode** — `prior_handoff_outputs_path` is empty or absent: write prompt files, return `status: waiting_for_handoffs` with `state_updates.handoffs[]` matching `../../schemas/handoffs.schema.json`. The orchestrator dispatches the listed sub-agents, persists their outputs to a sidecar, and re-invokes this skill with the sidecar path filled in.
 
-**Triage mode** — the Claude output block (required) is present: parse outputs, triage findings, return `status: complete`. Can-fail reviewer blocks (Codex, Gemini, Security) are optional.
+**Triage mode** — `prior_handoff_outputs_path` is a non-empty absolute path: read the JSON sidecar at that path (array of `{ index, exit_code, output, stderr }`), triage findings, return `status: success` (or `fix_required` / `blocked` / `abort`).
 
-Do not enter triage mode if the required Claude output block is missing; return `status: blocked` in that case.
+Required handoffs are Claude (index 1) and Security (index 4); a missing entry for either in the sidecar means `status: blocked`. Codex (index 2) and Gemini (index 3) are can-fail; missing entries contribute zero findings.
 
 ## Reviewer Set
 
