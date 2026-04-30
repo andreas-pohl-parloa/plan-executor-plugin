@@ -153,20 +153,20 @@ Build one prompt per reviewer. Each prompt must include:
 3. Run the language detection and Claude recipe load-list resolution (see "Language detection and Claude recipe skill loading"). Record the detected language and the final recipe load list. Add notes for any missing mapped skills.
 4. Build one reviewer prompt per reviewer using the contract above. The security prompt's first line uses the slash command chosen in step 2. The Claude prompt's preamble uses the recipe load list from step 3.
 5. Write the four prompt files to `execution_root`.
-6. Emit exactly four handoff lines in a single batch using the format from the handoff protocol:
-   ```
-   call sub-agent 1 (agent-type: claude): <execution_root>/.tmp-subtask-review-attempt-<attempt>-claude.md
-   call sub-agent 2 (agent-type: codex, can-fail: true): <execution_root>/.tmp-subtask-review-attempt-<attempt>-codex.md
-   call sub-agent 3 (agent-type: gemini, can-fail: true): <execution_root>/.tmp-subtask-review-attempt-<attempt>-gemini.md
-   call sub-agent 4 (agent-type: claude): <execution_root>/.tmp-subtask-review-attempt-<attempt>-security.md
-   ```
-7. Return `status: waiting_for_handoffs`.
+6. Return `status: waiting_for_handoffs` with the structured handoff list in `state_updates.handoffs[]` (see Completion Contract). The orchestrator (plan-executor binary) reads that array, dispatches the four reviewers via its built-in dispatcher, persists each sub-agent's stdout/exit_code to a sidecar file, and re-invokes this skill with `prior_handoff_outputs_path` pointing at that sidecar — at which point you re-enter in triage mode.
+
+You MAY validate your `state_updates.handoffs` payload before printing the envelope by piping it through `plan-executor validate-handoffs -` (exits 0 + `VALID:` on success, 1 + `ERROR:` on schema violation). The skill MUST emit the JSON envelope on stdout regardless — the validator is a self-check tool, not a substitute for the protocol.
+
+The legacy `call sub-agent N (...)` text markers are NOT consumed by the Rust orchestrator — only `state_updates.handoffs[]` is. Do not emit those markers.
 
 ### Triage Mode
 
-1. Require exactly one `# output sub-agent <N>:` block for Claude (index 1). If this block is missing, return `status: blocked`.
-2. Codex (index 2) and Gemini (index 3) output blocks are optional. A missing block for a can-fail reviewer means that reviewer's output is absent — treat it as contributing zero findings. A duplicated or unexpected index still triggers `status: blocked`.
-3. Security (index 4) output block is required. If this block is missing, return `status: blocked`.
+Triage mode is entered when the input includes a non-empty `prior_handoff_outputs_path`. The orchestrator wrote a JSON sidecar at that path; each entry is `{ "index": <N>, "exit_code": <int>, "output": "<stdout>", "stderr": "<stderr>" }`.
+
+1. Read the sidecar file at `prior_handoff_outputs_path`. Parse it as a JSON array.
+2. Require an entry with `index: 1` (Claude). If missing, return `status: blocked`.
+3. Codex (index 2) and Gemini (index 3) entries are optional. A missing entry for a can-fail reviewer means that reviewer's output is absent — treat it as contributing zero findings. A duplicated or unexpected index still triggers `status: blocked`.
+4. Security (index 4) entry is required. If missing, return `status: blocked`.
 4. Triage every finding from every reviewer into exactly one bucket:
    - `FIX_REQUIRED`
    - `VERIFIED_FIX`
@@ -186,12 +186,39 @@ Build one prompt per reviewer. Each prompt must include:
 
 ### `status: waiting_for_handoffs`
 
-Return after emitting the prompt-file batch. Include:
+Return after emitting the prompt-file batch. The envelope MUST include:
 
-- `status: waiting_for_handoffs`
-- `reviewer_set` — the frozen list of four reviewers used for this batch (caller must persist this)
-- `next_step`: provide one `# output sub-agent <N>:` block for each emitted handoff, then re-invoke this skill in triage mode
-- `notes`: emitted batch metadata, attempt number, and absolute prompt-file paths
+- `status: "waiting_for_handoffs"`
+- `next_step` — short string the operator can read (e.g. `"dispatch the four reviewers and re-invoke in triage mode"`)
+- `notes` — emitted batch metadata, attempt number, and absolute prompt-file paths
+- `state_updates`:
+  - `handoffs` — array of four entries the orchestrator dispatches verbatim. Each entry MUST have:
+    - `index` — 1-based integer (1=Claude, 2=Codex, 3=Gemini, 4=Security)
+    - `agent_type` — `"claude"` | `"codex"` | `"gemini"` (no `"bash"` for review handoffs)
+    - `prompt_file` — absolute path to the prompt file you just wrote under `execution_root`
+    - `can_fail` — `true` for Codex (index 2) and Gemini (index 3); omit (defaults to `false`) for Claude (index 1) and Security (index 4)
+  - `reviewer_set` — frozen list of four reviewers used for this batch (the caller persists this for replay / audit; not consumed by the dispatcher)
+
+Concrete envelope shape:
+
+```json
+{
+  "status": "waiting_for_handoffs",
+  "next_step": "dispatch four reviewers; re-invoke in triage mode",
+  "notes": "attempt 1; prompt files written to /…/execution_root/",
+  "state_updates": {
+    "handoffs": [
+      { "index": 1, "agent_type": "claude", "prompt_file": "/abs/path/.tmp-subtask-review-attempt-1-claude.md" },
+      { "index": 2, "agent_type": "codex",  "prompt_file": "/abs/path/.tmp-subtask-review-attempt-1-codex.md",  "can_fail": true },
+      { "index": 3, "agent_type": "gemini", "prompt_file": "/abs/path/.tmp-subtask-review-attempt-1-gemini.md", "can_fail": true },
+      { "index": 4, "agent_type": "claude", "prompt_file": "/abs/path/.tmp-subtask-review-attempt-1-security.md" }
+    ],
+    "reviewer_set": [ /* four-entry descriptor for replay */ ]
+  }
+}
+```
+
+Validate before printing: `echo '<your handoffs array>' | plan-executor validate-handoffs -` exits 0 with `VALID:` on success.
 
 ### `status: complete`
 
