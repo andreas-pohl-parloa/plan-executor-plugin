@@ -27,7 +27,7 @@ Three files are provided:
 
 1. `<plan-path>` — a plan-executor plan markdown file. Contains a header with metadata and numbered tasks in prose.
 2. `<schema-path>` — the JSON Schema for the output manifest (`tasks.schema.json`).
-3. `<meta-json-path>` — the metadata sidecar produced by `plan-executor:handover`. Authoritative source for `goal`, `type`, `jira`, `target_repo`, `target_branch`, `execution_mode`, `flags`, and `plan.path`.
+3. `<meta-json-path>` — the metadata sidecar produced by `plan-executor:handover`. Authoritative source for `goal`, `type`, `jira`, `target_repo`, `target_branch`, `flags`, and `plan.path`.
 
 Your output directory is `<output-dir>`. Create it if it does not exist. Write:
 
@@ -74,7 +74,9 @@ Read `$4` (the meta-json-path passed by `plan-executor:handover`). Parse it and 
 COMPILE_ERROR: meta.json missing required field <field-name>
 ```
 
-Use `meta.json` as the authoritative source for: `goal`, `type`, `jira`, `target_repo`, `target_branch`, `execution_mode` (defaults to `"local"` when absent), `flags`. Do NOT re-parse plan markdown headers — `handover` already collected this metadata. Do NOT ask for any clarification — this is a one-shot transformer.
+Use `meta.json` as the authoritative source for: `goal`, `type`, `jira`, `target_repo`, `target_branch`, `flags`. Do NOT re-parse plan markdown headers — `handover` already collected this metadata. Do NOT ask for any clarification — this is a one-shot transformer.
+
+`execution_mode` is NOT collected by handover — Pass 5 of the handover skill asks the user post-compile and edits the manifest in place if Mode 3 is chosen. Always emit `"execution_mode": "local"` here; the dispatcher flips it later when needed.
 
 The `plan_path` value becomes the manifest's `plan.path` field. The manifest's `plan.status` is initialized to `"READY"`.
 
@@ -133,7 +135,7 @@ The `plan` object inside the manifest now carries the new fields:
 }
 ```
 
-`plan.path` MUST be the `plan_path` value read from `meta.json`. `plan.status` MUST be the literal string `"READY"`. `plan.execution_mode` MUST be propagated verbatim from `meta.json` (`"local"` or `"remote"`); when `meta.json` omits the field, default to `"local"`. The schema rejects manifests that omit `path` or `status`; `execution_mode` is optional in the schema (defaults to `"local"`) but emit it explicitly anyway so the manifest is self-describing.
+`plan.path` MUST be the `plan_path` value read from `meta.json`. `plan.status` MUST be the literal string `"READY"`. `plan.execution_mode` MUST be the literal string `"local"`. (Mode selection is the handover skill's Pass 5 concern — if the user picks the remote mode, handover edits the manifest in place after this skill returns. Compile-plan never writes `"remote"` itself.) The schema rejects manifests that omit `path` or `status`; `execution_mode` is optional in the schema (defaults to `"local"`) but emit it explicitly so the manifest is self-describing.
 
 Before exiting, verify:
 
