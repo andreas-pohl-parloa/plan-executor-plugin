@@ -11,17 +11,101 @@ lint errors, SonarCloud findings, and any other failing check.
 
 ## Mode Detection
 
-This skill operates in four modes based on arguments:
+This skill operates in five modes based on arguments:
 
-- No `--fix`, no `--foreground`, no `--remote` → **Launcher mode** (background bash monitor; default).
+- `$1` is a path to a JSON sidecar file (filename ending in `.input.json` or `.json` whose top-level keys include `owner`, `repo`, `pr`) → **Sidecar mode** (daemon-invoked, foreground, MUST emit a structured envelope on stdout — see "Sidecar Mode" section below). Detected before any other mode.
+- No `--fix`, no `--foreground`, no `--remote` → **Launcher mode** (background bash monitor; default for interactive sessions).
 - `--foreground` → **Foreground mode** (sync bash monitor; same as Launcher but blocking).
 - `--remote` → **Remote mode** (submit to GHA execution repo; non-blocking, runs on a runner).
 - `--fix` → **Fixer mode** (internal: called by the monitor for individual fix work).
 
-Optional merge flags (Launcher, Foreground, Remote modes):
+Optional merge flags (Launcher, Foreground, Remote, Sidecar modes):
 - `--merge` → merge after finalization via `gh pr merge --merge`
 - `--merge-admin` → merge with admin override via `gh pr merge --merge --admin`
-- NEVER merge unless one of these flags was explicitly passed.
+- NEVER merge unless one of these flags was explicitly passed (Sidecar mode reads `merge_mode` from the JSON instead).
+
+---
+
+## Sidecar Mode (daemon-invoked)
+
+Triggered when `$1` is a path to a JSON sidecar (the plan-executor daemon's `helper.rs` writes one per invocation under `<workdir>/.plan-executor/helpers/<seq>-<idx>-pr_finalize.input.json`). The daemon contract requires a structured JSON envelope on stdout — prose output is rejected as `protocol_violation [no_json_envelope]`.
+
+### Step 1: Read the sidecar
+
+Read the file at `$1`. It contains:
+
+```json
+{
+  "owner": "parloa",
+  "repo": "claude-code-proxy",
+  "pr": 109,
+  "merge_mode": "none"   // or "merge" or "merge_admin"
+}
+```
+
+If the file is missing, malformed, or any of `owner`/`repo`/`pr` is missing, emit a `status: blocked` envelope (see "Envelope contract" below) with the parse error in `notes` and stop.
+
+### Step 2: Run pr-monitor.sh in the foreground
+
+Same monitor script the Foreground mode launches. Resolve `<skill-dir>` via the plugin cache path for `plan-executor:pr-finalize`. Create the temp summary/log files with `mktemp`.
+
+```bash
+bash <skill-dir>/pr-monitor.sh \
+  --owner "$OWNER" \
+  --repo "$REPO" \
+  --pr "$PR_NUMBER" \
+  --head-sha "$HEAD_SHA" \
+  --push-time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --workdir "$(pwd)" \
+  --summary-file "$SUMMARY_FILE" \
+  --log-file "$LOG_FILE"
+```
+
+Run via the **Bash tool, NOT `run_in_background`** — Sidecar mode must block until the script exits. The daemon allocates 35 minutes for this helper, which fits the script's hard 30-minute upper bound.
+
+### Step 3: Optional merge
+
+If `merge_mode == "merge"`: `gh pr merge --merge "$PR_NUMBER" --repo "$OWNER/$REPO"`.
+If `merge_mode == "merge_admin"`: `gh pr merge --merge --admin "$PR_NUMBER" --repo "$OWNER/$REPO"`.
+If `merge_mode == "none"` (or absent): skip.
+
+### Step 4: Emit the JSON envelope on stdout
+
+After pr-monitor.sh exits and any merge has been attempted, emit **exactly one** JSON object on stdout matching `helper-output:pr-finalize`. Self-validate it before printing — see "Envelope self-validation" below.
+
+```json
+{
+  "status": "success",                        // success | fix_required | blocked | abort
+  "next_step": "done",                        // done | address_findings | wait_for_review | terminate
+  "notes": "All checks passing; 0 fix sessions; PR not merged (merge_mode=none).",
+  "state_updates": {
+    "pr_state": "OPEN",                       // OPEN | MERGED | CLOSED | UNKNOWN
+    "bugbot_comments_addressed": 0,
+    "merge_sha": "abcdef0123456789abcdef0123456789abcdef01"   // OMIT when not merged
+  }
+}
+```
+
+Status meanings:
+
+- `success` — pr-monitor.sh exited clean (all checks green, threads resolved). Use `next_step: done`.
+- `fix_required` — pr-monitor terminated because it hit `MAX_FIX_SESSIONS` / `MAX_NO_PROGRESS` / unresolved findings; carry the script's summary in `notes`. Use `next_step: address_findings`.
+- `blocked` — pr-monitor could not start (PR not found, draft-ready failed, sidecar invalid). Use `next_step: terminate` and put the cause in `notes`.
+- `abort` — terminal failure (CI hard-failed beyond the script's retry budget). Use `next_step: terminate` and carry the failing check names in `notes`.
+
+### Envelope self-validation
+
+**Self-validation is MANDATORY before emitting the envelope.** Pipe the full envelope through `plan-executor validate --schema=helper-output:pr-finalize -` (exits `0` with `VALID:` on success, `1` with `ERROR:` lines on schema violation).
+
+Iterate until clean:
+
+1. Build the envelope per the contract above.
+2. Pipe it through the validator.
+3. On exit `0`: emit the envelope on stdout — that is the protocol path.
+4. On exit `1`: read the `ERROR:` lines, fix the offending fields, and re-validate. Common causes: a `status` value not in the schema's enum, a `next_step` value not in its enum, a `merge_sha` that isn't 40 hex chars, a missing `pr_state` or `bugbot_comments_addressed`.
+5. If repeated iterations cannot produce a schema-clean envelope, that is a SKILL ↔ schema drift bug. Emit a minimal `status: blocked` envelope whose `notes` carry the validator's `ERROR:` lines verbatim plus the offending envelope inline. Do NOT emit a known-broken envelope — the orchestrator fails fast on `blocked`, while a broken envelope wastes the protocol-violation retry budget on the same shape.
+
+After the envelope is printed, optionally clean up the `/tmp/pr-finalize-summary-*.md` and `/tmp/pr-finalize-log-*.txt` files. Do NOT print anything else on stdout after the envelope.
 
 ---
 
