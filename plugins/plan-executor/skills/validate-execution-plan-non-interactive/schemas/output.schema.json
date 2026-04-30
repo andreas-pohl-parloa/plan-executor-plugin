@@ -35,7 +35,7 @@
             "required": ["handoffs"],
             "properties": {
               "handoffs": {
-                "description": "Sub-agents the orchestrator must dispatch via handoff::dispatch_all. Mirrors the standalone handoffs.schema.json (use `plan-executor validate-handoffs` to self-check).",
+                "description": "Sub-agents the orchestrator must dispatch via handoff::dispatch_all. Mirrors the standalone handoffs.schema.json (use `plan-executor validate --schema=handoffs` to self-check the array, or `plan-executor validate --schema=helper-output:<id> -` for the full envelope).",
                 "type": "array",
                 "minItems": 1,
                 "maxItems": 16,

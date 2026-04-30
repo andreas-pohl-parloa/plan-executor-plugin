@@ -120,6 +120,8 @@ Allowed `status` values:
 - `blocked`
 - `abort`
 
+You SHOULD self-check the full envelope before printing it: `echo '<envelope>' | plan-executor validate --schema=helper-output:review-execution-output -` exits `0` with `VALID:` on success, `1` with `ERROR:` lines on schema violation. The envelope must still be emitted on stdout regardless — the validator is a self-check, not part of the protocol.
+
 ### `status: success`
 Use when review is complete and no unresolved `FIX_REQUIRED` items remain.
 

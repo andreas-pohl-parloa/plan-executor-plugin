@@ -30,7 +30,7 @@ claude -p "/plan-executor:compile-plan \
 ## Validate outputs
 
 ```
-plan-executor validate /tmp/compile-out/tasks.json
+plan-executor validate --schema=tasks /tmp/compile-out/tasks.json
 ```
 
 The `plan-executor` Rust binary must be on `PATH`. The compile-plan skill itself self-validates via this same CLI in Pass 5.
