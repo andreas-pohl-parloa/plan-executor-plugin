@@ -61,6 +61,10 @@
     "post_cap_decision": {
       "type": "string",
       "enum": ["unset", "proceed", "abort"]
+    },
+    "prior_handoff_outputs_path": {
+      "description": "Absolute path to the JSON sidecar carrying the dispatched sub-agent outputs the orchestrator just collected. Empty (or absent) on the first invocation (dispatch mode); non-empty on the re-invocation that follows a `waiting_for_handoffs` envelope (triage mode). Sidecar shape: an array of `{ index, exit_code, output, stderr }` entries.",
+      "type": "string"
     }
   }
 }

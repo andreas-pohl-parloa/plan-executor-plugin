@@ -38,8 +38,8 @@ You are the NON-INTERACTIVE VALIDATION HELPER. You run in the same agent as the 
 ## Responsibilities
 
 - Own validation prompt-file naming by writing `.tmp-subtask-plan-validation-attempt-<attempt>.md` for validator attempts.
-- Own validator handoff emission by printing `call sub-agent 1 (agent-type: claude): <absolute-path>` for the active validator prompt file.
-- Own resumed-output parsing for validator output by rereading persisted state first and requiring exactly one `# output sub-agent 1:` block for the active validator handoff.
+- Own validator handoff emission by including the validator entry in `state_updates.handoffs[]` (per `../../schemas/handoffs.schema.json`) on a `status: waiting_for_handoffs` envelope. The legacy `call sub-agent N (...)` text markers are NOT consumed by the Rust orchestrator; do not emit them.
+- Own resumed-output parsing for validator output by reading the JSON sidecar at `prior_handoff_outputs_path` (orchestrator-supplied on triage re-entry). Each entry is `{ "index": <N>, "exit_code": <int>, "output": "<stdout>", "stderr": "<stderr>" }`.
 - Treat any orchestrator attempt to self-validate, run alternate validators, or substitute targeted checks for the helper-owned validation loop as a phase violation. Unless the helper can still run its full required validation path in the current invocation, return `status: blocked`.
 - Do not count any out-of-band validation work as Phase 6 progress.
 - Own GAP-to-fix prompt generation by converting each actionable GAP, and each required DEVIATION correction, into a narrow validation-fix prompt.
@@ -156,15 +156,15 @@ Every validation-fix prompt must:
 ## Validation attempt loop
 
 1. Reread persisted validation state before taking any resume action.
-2. If no validator output exists for the current attempt, write `.tmp-subtask-plan-validation-attempt-<attempt>.md`, emit the validator handoff, persist state, and return `waiting_for_handoffs`.
-3. When resumed validator output is present, require exactly one `# output sub-agent 1:` block for the recorded validator handoff.
+2. If no validator output exists for the current attempt, write `.tmp-subtask-plan-validation-attempt-<attempt>.md`, emit the validator handoff via `state_updates.handoffs[]` (single-entry array, `index: 1`, `agent_type: "claude"`, `prompt_file` = the absolute path of the `.md` file), persist state, and return `waiting_for_handoffs`.
+3. When `prior_handoff_outputs_path` is non-empty (triage re-entry), read the JSON sidecar at that path and require exactly one entry with `index: 1` carrying the validator's `output` field.
 4. Parse the validator report deterministically.
 5. If the report is malformed, return `blocked` with the exact repair step.
 6. If `STATUS: PASS`, return `pass`.
 7. If `STATUS: FAIL`, extract GAPS and required DEVIATIONS, classify every failed item as actionable now or blocked with an explicit reason, and persist the parsed outcome.
 8. If there are no actionable fixes, return `blocked` with the documented blocking reason.
-9. If validation-fix handoffs for the current attempt have not been emitted yet, generate focused fix prompts, emit the first validation-fix batch, persist state, and return `waiting_for_handoffs`.
-10. When resumed validation-fix outputs are present, require every expected output block for the current batch, process them, update persisted batch progress, and either emit the next validation-fix batch or continue.
+9. If validation-fix handoffs for the current attempt have not been emitted yet, generate focused fix prompts, emit the first validation-fix batch via `state_updates.handoffs[]` (one entry per fix prompt with sequential `index` values; all are `agent_type: "claude"`; `can_fail` defaults to `false`), persist state, and return `waiting_for_handoffs`. Validate the array with `plan-executor validate-handoffs -` before emitting if you want to self-check the shape.
+10. When triage re-entry surfaces fix outputs (`prior_handoff_outputs_path` set), read the JSON sidecar, walk the `output` field of every entry whose `index` matches an emitted fix prompt, process them, update persisted batch progress, and either emit the next validation-fix batch (another `waiting_for_handoffs` envelope) or continue.
 11. After all validation-fix batches for the current attempt are processed, require verification of the delegated changes.
 12. If validation fixes changed implementation and code review was not skipped, invoke `plan-executor:review-execution-output-non-interactive`, require `status: clean`, and persist that re-review outcome before the next validation attempt starts.
 13. Increment the persisted validation attempt only after the current attempt's fix work, verification, and required re-review are complete.
