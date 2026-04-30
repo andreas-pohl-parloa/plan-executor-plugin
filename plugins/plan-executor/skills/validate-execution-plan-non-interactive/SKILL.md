@@ -46,7 +46,7 @@ You are the NON-INTERACTIVE VALIDATION HELPER. You run in the same agent as the 
 - Own validation-fix batching by writing `.tmp-subtask-validation-fix-attempt-<attempt>-<N>.md` prompt files and emitting at most 5 validation-fix handoffs per batch.
 - Own persisted validation attempt state, including skill version, current phase, current attempt number, active validation batch, parsed validator outcome, unresolved items, completed fix batches, any pending re-review requirement, and final cap summary when relevant.
 - Own deterministic stop summary after the cap is reached by returning the same unresolved-item summary every time the helper is re-entered without new authoritative state.
-- Trigger re-review through `plan-executor:review-execution-output-non-interactive` after validation fixes changed implementation when code review is not skipped, and require that helper to return `status: clean` before the next validation attempt starts.
+- Trigger re-review through `plan-executor:review-execution-output-non-interactive` after validation fixes changed implementation when code review is not skipped, and require that helper to return `status: success` before the next validation attempt starts.
 - If that re-review returns `waiting_for_handoffs`, `fix_required`, `blocked`, or `abort`, propagate that outcome deterministically through this helper instead of silently continuing to the next validation attempt.
 - Persist the re-review outcome in `state_updates` so the next validation re-entry knows whether review is complete, waiting, blocked, or terminal.
 - Return deterministic helper status, next action, notes, and state updates to the orchestrator after each helper invocation.
@@ -160,18 +160,18 @@ Every validation-fix prompt must:
 3. When `prior_handoff_outputs_path` is non-empty (triage re-entry), read the JSON sidecar at that path and require exactly one entry with `index: 1` carrying the validator's `output` field.
 4. Parse the validator report deterministically.
 5. If the report is malformed, return `blocked` with the exact repair step.
-6. If `STATUS: PASS`, return `pass`.
+6. If `STATUS: PASS`, return `success`.
 7. If `STATUS: FAIL`, extract GAPS and required DEVIATIONS, classify every failed item as actionable now or blocked with an explicit reason, and persist the parsed outcome.
 8. If there are no actionable fixes, return `blocked` with the documented blocking reason.
 9. If validation-fix handoffs for the current attempt have not been emitted yet, generate focused fix prompts, emit the first validation-fix batch via `state_updates.handoffs[]` (one entry per fix prompt with sequential `index` values; all are `agent_type: "claude"`; `can_fail` defaults to `false`), persist state, and return `waiting_for_handoffs`. Validate the array with `plan-executor validate-handoffs -` before emitting if you want to self-check the shape.
 10. When triage re-entry surfaces fix outputs (`prior_handoff_outputs_path` set), read the JSON sidecar, walk the `output` field of every entry whose `index` matches an emitted fix prompt, process them, update persisted batch progress, and either emit the next validation-fix batch (another `waiting_for_handoffs` envelope) or continue.
 11. After all validation-fix batches for the current attempt are processed, require verification of the delegated changes.
-12. If validation fixes changed implementation and code review was not skipped, invoke `plan-executor:review-execution-output-non-interactive`, require `status: clean`, and persist that re-review outcome before the next validation attempt starts.
+12. If validation fixes changed implementation and code review was not skipped, invoke `plan-executor:review-execution-output-non-interactive`, require `status: success`, and persist that re-review outcome before the next validation attempt starts.
 13. Increment the persisted validation attempt only after the current attempt's fix work, verification, and required re-review are complete.
 14. On attempts 1 through 4 with remaining actionable issues, return `fix_required` with the exact next validation re-entry step.
-15. On 5 failed attempts with unresolved actionable issues, persist `cap_summary`, return `proceed_decision_required`, and require the orchestrator to stop with the deterministic unresolved-item summary.
-16. If the helper is re-entered after the cap with `post_cap_decision: unset`, return the same `proceed_decision_required` summary again.
-17. If `post_cap_decision: proceed` is recorded after the cap, return `abort` because non-interactive execution must stop at that decision boundary and may continue only through a fresh intentional rerun with updated authoritative state.
+15. On 5 failed attempts with unresolved actionable issues, persist `cap_summary`, return `abort`, and require the orchestrator to stop with the deterministic unresolved-item summary.
+16. If the helper is re-entered after the cap with `post_cap_decision: unset`, return `abort` again with the same persisted cap summary.
+17. If `post_cap_decision: proceed` is recorded after the cap, still return `abort` because non-interactive execution must stop at that decision boundary and may continue only through a fresh intentional rerun with updated authoritative state.
 18. If `post_cap_decision: abort` is recorded after the cap, return `abort` with the same persisted cap summary.
 19. Never silently continue validation after the cap inside the same non-interactive run.
 
@@ -192,16 +192,15 @@ Once persisted, this summary must be returned unchanged on repeated resumes unti
 
 Return a deterministic object or equivalent structured result with:
 
-- `status`: one of `pass`, `fix_required`, `waiting_for_handoffs`, `proceed_decision_required`, `blocked`, `abort`
+- `status`: one of `success`, `fix_required`, `waiting_for_handoffs`, `blocked`, `abort`
 - `next_step`: exact next orchestrator action
 - `notes`: concise carry-forward context, including validation attempt, unresolved GAPS, unresolved DEVIATIONS, batching progress, re-review outcome, and cap-summary context when present
 - `state_updates`: authoritative validation-state changes that the orchestrator must persist before another batch, resume point, or phase transition
 
 Status meanings:
 
-- `pass` — validation succeeded and Phase 6 may complete.
+- `success` — validation succeeded and Phase 6 may complete.
 - `fix_required` — delegated validation-fix work has completed for the current attempt, required verification and any required re-review are done, and the orchestrator must re-enter validation for the next attempt.
 - `waiting_for_handoffs` — the helper emitted validator or validation-fix handoffs and the orchestrator must stop for resumed outputs.
-- `proceed_decision_required` — the helper reached the cap or an equivalent terminal decision point and the orchestrator must obtain or honor an explicit proceed-or-stop decision.
 - `blocked` — the helper cannot continue deterministically because required inputs, resumed outputs, report structure, or execution context are missing or invalid.
-- `abort` — a terminal stop condition was reached and validation must not continue.
+- `abort` — a terminal stop condition was reached and validation must not continue. Includes the cap-reached case (5 failed attempts) and any post-cap re-entry, where `notes` carries the persisted `cap_summary` so the orchestrator can surface the deterministic stop reason.

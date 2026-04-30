@@ -96,7 +96,7 @@ Each finding persisted in helper-owned state must be in exactly one bucket:
 4. Invoke `plan-executor:run-reviewer-team-non-interactive` in dispatch mode. Stop and return `status: waiting_for_handoffs`.
 5. On resume, reread helper-owned state and orchestrator state before processing reviewer outputs.
 6. Invoke `plan-executor:run-reviewer-team-non-interactive` in triage mode with the three reviewer output blocks. Merge the result into helper-owned review state.
-7. If no unresolved `FIX_REQUIRED` items remain, return `status: clean`.
+7. If no unresolved `FIX_REQUIRED` items remain, return `status: success`.
 8. If the helper detects orchestrator bypass or missing required reviewer outputs without a helper-owned blocked reason, return `status: blocked`.
 9. If unresolved `FIX_REQUIRED` items remain and the cap is not exhausted, follow Section 3: serialize findings, invoke `plan-executor compile-fix-waves`, persist the appended fix-wave IDs in helper-owned state, and return `status: fix_required`. The orchestrator dispatches the new fix-waves through standard wave execution; this helper does not emit per-finding handoffs.
 10. After the delegated fix pass completes, require regression verification before re-entering step 4 for the next attempt.
@@ -114,13 +114,13 @@ The helper must return exactly one result object with:
 
 Allowed `status` values:
 
-- `clean`
+- `success`
 - `fix_required`
 - `waiting_for_handoffs`
 - `blocked`
 - `abort`
 
-### `status: clean`
+### `status: success`
 Use when review is complete and no unresolved `FIX_REQUIRED` items remain.
 
 - `next_step`: proceed to non-interactive execute-plan Phase 6
