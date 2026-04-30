@@ -182,6 +182,8 @@ Build one prompt per reviewer. Each prompt must include:
 
 ## Completion Contract
 
+**Output protocol (strict):** stdout MUST be exactly one JSON envelope object — `{ "status": "...", "next_step": "...", "notes": "...", "state_updates": { ... } }`. Do NOT print any other `{ ... }` block before or after it. Do NOT paraphrase `reviewer_set` entries (or any other field) as a JS-/Python-style object literal in prose; the executor scans for the first balanced `{ ... }` block whose JSON parses and contains `"status"`, and an unparseable descriptor preceding the real envelope risks tripping a `protocol_violation` even with the resilient extractor. If you need to narrate dispatch, use plain sentences — no curly braces.
+
 ### `status: waiting_for_handoffs`
 
 Return after emitting the prompt-file batch. Include:
