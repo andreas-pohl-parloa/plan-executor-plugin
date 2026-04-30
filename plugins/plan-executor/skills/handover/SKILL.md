@@ -108,20 +108,22 @@ Use `Glob` to check for the path pattern `~/.claude/plugins/cache/claude-plugins
 The single question is *"How do you want to run this plan?"*. Options (label / description) — present in this order, including 4 + 5 only when superpowers was detected:
 
 1. **plan-executor (in-session, sub-agents)** — runs `plan-executor:execute-plan` inside this Claude session; the orchestrator dispatches focused sub-agents per task wave.
-2. **plan-executor (non-interactive local)** — compiles the plan and runs `plan-executor execute --compiled-manifest <path>` synchronously in a foreground shell. No sub-agents in this session; the Rust scheduler drives the Claude/Codex/Gemini CLIs directly.
+2. **plan-executor (non-interactive local)** — compiles the plan and submits it to the local plan-executor daemon. The daemon owns scheduling, persistence, and TUI/output streaming; the user can tail with `plan-executor output -f <job-id>`.
 3. **plan-executor (non-interactive remote)** — compiles the plan and submits it to the GitHub Actions execution repo via the existing `kind: plan` flow (push `plan.md` + `job-spec.json`, open execution PR, GHA runs `plan-executor execute` on a runner).
 4. *(superpowers only)* **superpowers (inline)** — hand the original plan markdown to `superpowers:executing-plans` and let it execute serially in this session.
 5. *(superpowers only)* **superpowers (sub-agents)** — hand the original plan markdown to `superpowers:subagent-driven-development` (the sub-agent-driven variant of executing-plans).
 
 **5c. Dispatch based on the answer.**
 
-For every plan-executor mode (1, 2, 3) you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3. It produces `<plan-dir>/tasks/tasks.json`. The compiled manifest carries `plan.execution_mode` (defaults to `"local"`); the binary reads that field to choose between local execution and GHA submission. The plan markdown is NOT read for execution flags any more.
+For every plan-executor mode (1, 2, 3) you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3. It produces `<plan-dir>/tasks/tasks.json`. The compiled manifest carries `plan.execution_mode` (always `"local"` from compile-plan); Mode 3 flips it to `"remote"` after compile. The plan markdown is NOT read for execution flags any more.
 
-How the binary dispatches: `plan-executor execute <tasks.json> --foreground` reads `plan.execution_mode` from the manifest. When it equals `"remote"`, the binary routes to `trigger_remote` (push plan + job-spec to the configured `remote_repo`, open execution PR; GHA runs `plan-executor execute` on a runner). The `PLAN_EXECUTOR_LOCAL=1` env var force-overrides to local for cases where you want to run a remote-tagged manifest locally without rewriting it. Modes 2 and 3 use the **same command** — only the manifest's `execution_mode` value differs.
+Binary command convention:
+  - `plan-executor execute <tasks.json>` (no `--foreground`) → submits to the local daemon for normal execution.
+  - `plan-executor execute <tasks.json> --foreground` → reads `plan.execution_mode` from the manifest; when `"remote"` the binary routes to `trigger_remote` (push plan + job-spec to the configured `remote_repo`, open execution PR; GHA runs `plan-executor execute` on a runner). The `--foreground` flag is the dispatch path used for remote submission, NOT a local-execution alternative.
 
 - **Mode 1** — Invoke the `plan-executor:execute-plan` skill, passing `--compiled-manifest <tasks.json>`. That skill becomes the orchestrator and takes over from here.
-- **Mode 2 (non-interactive local)** — Run `PLAN_EXECUTOR_LOCAL=1 plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The env var forces local even if `execution_mode` somehow says remote. Stream output; do not background.
-- **Mode 3 (non-interactive remote)** — After compile-plan finishes, flip the manifest's execution mode to remote, then run.
+- **Mode 2 (non-interactive local)** — Run `plan-executor execute <tasks.json>` via `Bash`. The CLI submits to the daemon and returns the job id. The daemon owns the run; tail it with `plan-executor output -f <job-id>` if the user wants live output. Daemon must be running — if not, `plan-executor ensure` starts it.
+- **Mode 3 (non-interactive remote)** — After compile-plan finishes, flip the manifest's execution mode to remote, then run via the foreground dispatch path:
   - Edit `tasks.json` to set `"execution_mode": "remote"` inside the `plan` object. Find the line `"execution_mode": "local"` (compile-plan wrote it) and replace `"local"` with `"remote"`. Use the `Edit` tool.
   - Run `plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The binary reads `plan.execution_mode = "remote"` and submits to the configured execution repo.
 
