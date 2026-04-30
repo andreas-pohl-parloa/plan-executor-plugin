@@ -124,6 +124,8 @@ If the engine is `plan-executor`, ask:
 > 2. **Daemon** — submits to the local plan-executor daemon. The daemon owns scheduling, persistence, and output streaming; tail with `plan-executor output -f <job-id>`.
 > 3. **Remote** — submits to the configured remote execution repo. GitHub Actions runs the plan on a runner; the user tracks progress via the execution PR.
 
+Do NOT mark any plan-executor option as "(Recommended)". The right choice depends on context the skill cannot see (whether the user wants to drive the run themselves, whether the daemon is running, whether the plan is meant for a remote runner). `AskUserQuestion`'s convention of marking the first option as recommended must be suppressed here — pass the labels exactly as shown above.
+
 If the engine is `superpowers`, ask:
 
 > *"How do you want to run this plan with superpowers?"*
