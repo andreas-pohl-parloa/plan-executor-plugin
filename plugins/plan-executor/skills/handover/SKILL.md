@@ -115,16 +115,20 @@ The single question is *"How do you want to run this plan?"*. Options (label / d
 
 For every plan-executor mode (1, 2, 3) you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3. It produces `<plan-dir>/tasks/tasks.json`. Capture that path; it's the input the next step needs.
 
-- **Mode 1** — Invoke the `plan-executor:execute-plan` skill, passing the compiled-manifest path (`--compiled-manifest <tasks.json>`). That skill becomes the orchestrator and takes over from here.
-- **Mode 2** — Run `plan-executor execute --compiled-manifest <tasks.json>` synchronously via the `Bash` tool. Stream the output; the user is watching live. Do not background it.
-- **Mode 3** — Remote plan execution does not yet have a single-command client. Print the next-step block exactly:
-  ```
-  REMOTE_NEXT_STEPS:
-    1. Push plan.md + job-spec.json to the execution repo (job-spec.json must contain `kind: "plan"` and the plan flags).
-    2. Open the execution PR (label: pr-finalize is NOT required; the workflow dispatches on `kind`).
-    3. The GHA workflow at docs/remote-execution/execute-plan.yml will run `plan-executor execute` on the runner.
-  ```
-  Then exit. Do not attempt the multi-step `gh api` flow inline — it is brittle and the user typically prefers to drive it.
+How the binary distinguishes local vs. remote: `plan-executor execute <tasks.json> --foreground` reads the plan markdown referenced by the manifest and looks for an `**execution:** remote` header (handled by `crate::plan::parse_execution_mode`). When present, the binary routes to the GitHub Actions submission flow (`trigger_remote`) instead of running locally. The `PLAN_EXECUTOR_LOCAL=1` env var force-overrides to local even when the header is set. Modes 2 and 3 use the **same command** — only the plan-header / env-var configuration differs.
+
+- **Mode 1** — Invoke the `plan-executor:execute-plan` skill, passing `--compiled-manifest <tasks.json>`. That skill becomes the orchestrator and takes over from here.
+- **Mode 2 (non-interactive local)** — Run `PLAN_EXECUTOR_LOCAL=1 plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The env var forces local even if the plan happens to have `**execution:** remote` set. Stream output; do not background it.
+- **Mode 3 (non-interactive remote)** — First, ensure the plan markdown carries `**execution:** remote`:
+  - Read the plan markdown.
+  - If a line `**execution:** <value>` exists, replace its value with `remote`.
+  - Otherwise, prepend a new `**execution:** remote` line to the plan's header block (alongside `**Goal:**`, `**Type:**`, etc.).
+  - Use the `Edit` tool, then re-run `plan-executor:compile-plan` so the manifest reflects the change (the manifest's `plan.path` already points to this file; nothing else needs touching).
+
+  Then run `plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The binary detects `**execution:** remote`, calls `trigger_remote`, and submits to the configured execution repo (push `plan.md` + `job-spec.json` with `kind: "plan"`, open execution PR; the GHA workflow at `docs/remote-execution/execute-plan.yml` runs `plan-executor execute` on a runner).
+
+  Prerequisite: `~/.plan-executor/config.json` must contain `remote_repo`. If absent, the binary exits with `remote execution requires 'remote_repo' in config — run 'plan-executor remote-setup'`. Surface that to the user verbatim.
+
 - **Mode 4** — Invoke the `superpowers:executing-plans` skill, passing the original plan markdown path (NOT meta.json — superpowers reads the plan directly).
 - **Mode 5** — Invoke the `superpowers:subagent-driven-development` skill, passing the original plan markdown path.
 
