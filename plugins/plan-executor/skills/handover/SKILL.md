@@ -1,6 +1,6 @@
 ---
 name: plan-executor:handover
-description: Use ONLY when a plan needs to be ingested into the plan-executor pipeline. Detects the source format (superpowers, plan-executor markdown with flag headers, Claude Code planning output, plain markdown, GitHub issue text), collects executor metadata interactively when missing, writes a meta.json sidecar consumable by plan-executor:compile-plan, and finally asks the user which execution mode to dispatch (in-session sub-agents / non-interactive local / non-interactive remote, plus superpowers inline / sub-agent modes when superpowers is installed).
+description: Use ONLY when a plan needs to be ingested into the plan-executor pipeline. Detects the source format (superpowers, plan-executor markdown with flag headers, Claude Code planning output, plain markdown, GitHub issue text), collects executor metadata interactively when missing, writes a meta.json sidecar consumable by plan-executor:compile-plan, and finally asks the user how to run the plan in two short passes (engine — plan-executor or superpowers — then mode within that engine) before dispatching to the chosen executor.
 argument-hint: [plan-path] [--type=<feature|bug|refactor|chore|docs|infra>] [--no-worktree] [--no-pr] [--draft-pr] [--merge] [--merge-admin] [--target-repo=<owner/repo>] [--target-branch=<branch>] [--jira=<TICKET>]
 ---
 
@@ -97,40 +97,58 @@ After printing the contract line, continue into Pass 5.
 
 ### Pass 5 — Choose execution mode
 
-Handover ingestion is done; the plan is ready to execute. Ask the user how they want to run it, then dispatch.
+Handover ingestion is done; the plan is ready to execute. Choose the executor in two short passes (engine, then mode), then dispatch. Splitting the question keeps every `AskUserQuestion` call comfortably under the tool's 4-option cap and lets each pass surface mode-specific descriptions instead of cramming five disparate options into one prompt.
 
 **5a. Detect whether `superpowers` is available.**
 
-Use `Glob` to check for the path pattern `~/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/executing-plans/SKILL.md`. If at least one match exists, superpowers is available and you must offer modes 4 + 5. Otherwise restrict the question to modes 1 – 3.
+Use `Glob` to check for `~/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/subagent-driven-development/SKILL.md`. The result decides whether Pass 5b runs at all.
 
-**5b. Ask via `AskUserQuestion`.**
+**5b. Ask which engine to use (skip when superpowers is not installed).**
 
-The single question is *"How do you want to run this plan?"*. Options (label / description) — present in this order, including 4 + 5 only when superpowers was detected:
+If superpowers was detected, ask via `AskUserQuestion`:
 
-1. **plan-executor (in-session, sub-agents)** — runs `plan-executor:execute-plan` inside this Claude session; the orchestrator dispatches focused sub-agents per task wave.
-2. **plan-executor (non-interactive local)** — compiles the plan and submits it to the local plan-executor daemon. The daemon owns scheduling, persistence, and TUI/output streaming; the user can tail with `plan-executor output -f <job-id>`.
-3. **plan-executor (non-interactive remote)** — compiles the plan and submits it to the GitHub Actions execution repo via the existing `kind: plan` flow (push `plan.md` + `job-spec.json`, open execution PR, GHA runs `plan-executor execute` on a runner).
-4. *(superpowers only)* **superpowers (inline)** — hand the original plan markdown to `superpowers:executing-plans` and let it execute serially in this session.
-5. *(superpowers only)* **superpowers (sub-agents)** — hand the original plan markdown to `superpowers:subagent-driven-development` (the sub-agent-driven variant of executing-plans).
+> *"Which executor should run this plan?"*
+>
+> 1. **plan-executor** — the executor for this skill family; offers in-session sub-agent orchestration, daemon-driven local runs, and GHA-based remote runs.
+> 2. **superpowers** — Anthropic's general-purpose plan executor; offers inline-serial and sub-agent-driven variants.
 
-**5c. Dispatch based on the answer.**
+If superpowers was NOT detected, skip this pass entirely and treat the engine as `plan-executor`.
 
-For every plan-executor mode (1, 2, 3) you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3. It produces `<plan-dir>/tasks/tasks.json`. The compiled manifest carries `plan.execution_mode` (always `"local"` from compile-plan); Mode 3 flips it to `"remote"` after compile. The plan markdown is NOT read for execution flags any more.
+**5c. Ask the mode within the chosen engine.**
+
+If the engine is `plan-executor`, ask:
+
+> *"How do you want to run this plan with plan-executor?"*
+>
+> 1. **in-session, sub-agents** — `plan-executor:execute-plan` runs inside this Claude session; the orchestrator dispatches focused sub-agents per task wave.
+> 2. **non-interactive local** — submits to the local plan-executor daemon. The daemon owns scheduling, persistence, and output streaming; tail with `plan-executor output -f <job-id>`.
+> 3. **non-interactive remote** — submits to the configured remote execution repo. GitHub Actions runs the plan on a runner; the user tracks progress via the execution PR.
+
+If the engine is `superpowers`, ask:
+
+> *"How do you want to run this plan with superpowers?"*
+>
+> 1. **sub-agents** (recommended) — `superpowers:subagent-driven-development` dispatches focused sub-agents per task. Recommended on Claude Code where sub-agents are always available.
+> 2. **inline** — `superpowers:executing-plans` runs serially in this session. Choose this only when sub-agent dispatch would interfere with another in-flight workflow.
+
+**5d. Dispatch based on the engine + mode pair.**
+
+For every plan-executor mode you MUST first compile the plan: invoke the `plan-executor:compile-plan` skill with the meta.json path written in Pass 3. It produces `<plan-dir>/tasks/tasks.json`. The compiled manifest carries `plan.execution_mode` (always `"local"` from compile-plan); the remote mode flips it to `"remote"` after compile. The plan markdown is NOT read for execution flags any more.
 
 Binary command convention:
   - `plan-executor execute <tasks.json>` (no `--foreground`) → submits to the local daemon for normal execution.
   - `plan-executor execute <tasks.json> --foreground` → reads `plan.execution_mode` from the manifest; when `"remote"` the binary routes to `trigger_remote` (push plan + job-spec to the configured `remote_repo`, open execution PR; GHA runs `plan-executor execute` on a runner). The `--foreground` flag is the dispatch path used for remote submission, NOT a local-execution alternative.
 
-- **Mode 1** — Invoke the `plan-executor:execute-plan` skill, passing `--compiled-manifest <tasks.json>`. That skill becomes the orchestrator and takes over from here.
-- **Mode 2 (non-interactive local)** — Run `plan-executor execute <tasks.json>` via `Bash`. The CLI submits to the daemon and returns the job id. The daemon owns the run; tail it with `plan-executor output -f <job-id>` if the user wants live output. Daemon must be running — if not, `plan-executor ensure` starts it.
-- **Mode 3 (non-interactive remote)** — After compile-plan finishes, flip the manifest's execution mode to remote, then run via the foreground dispatch path:
+- **plan-executor / in-session, sub-agents** — Invoke the `plan-executor:execute-plan` skill, passing `--compiled-manifest <tasks.json>`. That skill becomes the orchestrator and takes over from here.
+- **plan-executor / non-interactive local** — Run `plan-executor execute <tasks.json>` via `Bash`. The CLI submits to the daemon and returns the job id; tail with `plan-executor output -f <job-id>` if live output is wanted. Daemon must be running — if not, `plan-executor ensure` starts it.
+- **plan-executor / non-interactive remote** — After compile-plan finishes, flip the manifest's execution mode to remote, then run via the foreground dispatch path:
   - Edit `tasks.json` to set `"execution_mode": "remote"` inside the `plan` object. Find the line `"execution_mode": "local"` (compile-plan wrote it) and replace `"local"` with `"remote"`. Use the `Edit` tool.
   - Run `plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The binary reads `plan.execution_mode = "remote"` and submits to the configured execution repo.
 
   Prerequisite: `~/.plan-executor/config.json` must contain `remote_repo`. If absent, the binary exits with `remote execution requires 'remote_repo' in config — run 'plan-executor remote-setup'`. Surface that error to the user verbatim.
 
-- **Mode 4** — Invoke the `superpowers:executing-plans` skill, passing the original plan markdown path (NOT meta.json — superpowers reads the plan directly).
-- **Mode 5** — Invoke the `superpowers:subagent-driven-development` skill, passing the original plan markdown path.
+- **superpowers / sub-agents** — Invoke the `superpowers:subagent-driven-development` skill, passing the original plan markdown path (NOT meta.json — superpowers reads the plan directly).
+- **superpowers / inline** — Invoke the `superpowers:executing-plans` skill, passing the original plan markdown path.
 
 In all modes, after dispatching you yield control to the chosen executor. Do not continue with handover-level reporting; the executor's own contract takes over.
 
