@@ -134,6 +134,7 @@ The `plan` object inside the manifest now carries the new fields:
         "preflight",
         "wave_execution",
         "integration_testing",
+        "code_review",
         "validation",
         "pr_creation",
         "pr_finalize",
@@ -148,7 +149,7 @@ The `plan` object inside the manifest now carries the new fields:
 
 `plan.path` MUST be the `plan_path` value read from `meta.json`. `plan.status` MUST be the literal string `"READY"`. `plan.execution_mode` MUST equal the value read from `meta.json` (defaulting to `"local"` when meta.json omits the field). The schema rejects manifests that omit `path` or `status`; `execution_mode` is optional in the schema (defaults to `"local"`) but emit it explicitly so the manifest is self-describing.
 
-`plan.pipeline.steps` controls which daemon-pipeline steps the registry instantiates. Always emit the seven-step default above (preflight → wave_execution → integration_testing → validation → pr_creation → pr_finalize → summary). `code_review` is intentionally absent: the helper-driven dispatch→triage round-trip (`run-reviewer-team-non-interactive`) isn't yet wired into the Rust orchestrator, so listing it would fail at step 4 with `protocol_violation [envelope_shape]`. Insert `"code_review"` between `"integration_testing"` and `"validation"` only once that protocol lands. The known step names — registry-side — are: `preflight`, `wave_execution`, `integration_testing`, `code_review`, `validation`, `pr_creation`, `pr_finalize`, `summary`. Names outside that set fail manifest validation.
+`plan.pipeline.steps` controls which daemon-pipeline steps the registry instantiates. Always emit the canonical eight-step default above (preflight → wave_execution → integration_testing → **code_review** → validation → pr_creation → pr_finalize → summary). `code_review` runs the helper-driven dispatch→triage round-trip (`run-reviewer-team-non-interactive`); the Rust orchestrator wires this through the same handoff protocol that drives validation, so the step is fully supported. Drop it from the list ONLY for one-shot manifests where the operator explicitly does not want review. The known step names — registry-side — are: `preflight`, `wave_execution`, `integration_testing`, `code_review`, `validation`, `pr_creation`, `pr_finalize`, `summary`. Names outside that set fail manifest validation.
 
 Before exiting, verify:
 
