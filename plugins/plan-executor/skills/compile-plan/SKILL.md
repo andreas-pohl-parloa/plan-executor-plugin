@@ -74,7 +74,9 @@ Read `$4` (the meta-json-path passed by `plan-executor:handover`). Parse it and 
 COMPILE_ERROR: meta.json missing required field <field-name>
 ```
 
-Use `meta.json` as the authoritative source for: `goal`, `type`, `jira`, `target_repo`, `target_branch`, `execution_mode`, `flags`. Do NOT re-parse plan markdown headers — `handover` already collected this metadata. Do NOT ask for any clarification — this is a one-shot transformer.
+Use `meta.json` as the authoritative source for: `goal`, `title`, `type`, `jira`, `target_repo`, `target_branch`, `execution_mode`, `flags`. Do NOT re-parse plan markdown headers — `handover` already collected this metadata. Do NOT ask for any clarification — this is a one-shot transformer.
+
+`title` is a short summary supplied by handover, used by the Rust orchestrator as the PR title body. Propagate it verbatim into `plan.title` in `tasks.json`. If older `meta.json` files predate this contract and omit the field, omit it from the manifest too — the orchestrator falls back to truncating `goal`.
 
 `execution_mode` is set by handover: Pass 3 writes `"local"` by default; Pass 5 rewrites it to `"remote"` if the user picks the Remote plan-executor mode. Propagate whatever value is in `meta.json` verbatim into `plan.execution_mode` in `tasks.json`. If the field is absent (older meta.json predating this contract), default to `"local"`.
 
@@ -121,6 +123,7 @@ The `plan` object inside the manifest now carries the new fields:
   "version": 1,
   "plan": {
     "goal": "...",
+    "title": "...",
     "type": "feature",
     "jira": "",
     "target_repo": null,
