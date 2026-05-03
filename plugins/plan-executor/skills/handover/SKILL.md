@@ -44,6 +44,13 @@ For each missing field, ask via `AskUserQuestion` when interactive, or fail with
 Required fields (snake_case):
 
 - `goal` (string, required) — extract from `**Goal:**` or first paragraph; otherwise ask.
+- `title` (string, required, ≤ 50 chars) — short conventional-commit-subject summary of the goal. Used by the orchestrator's `pr_title` helper as the body of the eventual PR title (after the `feat(JIRA): ` prefix). Derive a default from `goal` using these rules:
+  - lower-case, imperative voice ("wire …", "fix …", "drop …"), no trailing punctuation;
+  - omit the conventional-commits prefix and JIRA scope — those are added by the orchestrator;
+  - drop articles, filler, and qualifiers ("the manifest's plan.status state machine" → "plan.status state machine");
+  - target ≤ 50 characters; the schema rejects oversized values.
+
+  When interactive, present the derived default via `AskUserQuestion` and accept the user's edit. When non-interactive, use the derived default silently. Do NOT extract from the plan markdown headers — the title is computed, not read. The downstream `tasks.json` schema constrains this field to `minLength: 1, maxLength: 50`.
 - `type` (enum: `feature` / `bug` / `refactor` / `chore` / `docs` / `infra`) — extract from `**Type:**` or `--type=`; otherwise ask.
 - `jira` (string, may be empty) — extract from `**JIRA:**` / `**Ticket:**` or `--jira=`; otherwise ask. Normalize the extracted/answered value: if it case-insensitively matches `none`, `n/a`, `null`, or `tbd`, emit `""` instead. The downstream `tasks.json` schema constrains this field to `^([A-Z][A-Z0-9]+-[0-9]+|)$` (ticket ID or empty), so any non-ticket sentinel must collapse to the empty string before being written into `meta.json`.
 - `target_repo` (string `owner/repo` or null) — extract from a `**target_repo:**` header or `--target-repo=`; otherwise ask. Null when local-only.
@@ -64,6 +71,7 @@ Write `<plan-path>.meta.json` (same directory as the plan, filename = plan filen
 {
   "plan_path": "<absolute-path-to-plan.md>",
   "goal": "...",
+  "title": "...",
   "type": "feature",
   "jira": "",
   "target_repo": null,
@@ -80,7 +88,7 @@ Write `<plan-path>.meta.json` (same directory as the plan, filename = plan filen
 }
 ```
 
-`plan_path` MUST be the absolute, resolved (symlink-followed) path of `$1`. Booleans MUST be JSON booleans, not strings. Empty/absent strings emit `""` or `null` per their schema position above. `execution_mode` MUST be `"local"` here; Pass 5 may rewrite it to `"remote"` after the user answers.
+`plan_path` MUST be the absolute, resolved (symlink-followed) path of `$1`. Booleans MUST be JSON booleans, not strings. Empty/absent strings emit `""` or `null` per their schema position above. `title` MUST be 1–50 characters (schema-enforced downstream); use the derivation rules above. `execution_mode` MUST be `"local"` here; Pass 5 may rewrite it to `"remote"` after the user answers.
 
 If the file already exists, overwrite it (handover is idempotent).
 
