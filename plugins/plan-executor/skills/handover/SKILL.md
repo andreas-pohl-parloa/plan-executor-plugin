@@ -166,12 +166,11 @@ Do NOT default to `<plan-dir>/tasks/`; that path collides whenever a second plan
 The plan markdown is NOT read for execution flags any more — `meta.json` → `tasks.json` is the only path.
 
 Binary command convention:
-  - `plan-executor execute <tasks.json>` (no `--foreground`) → submits to the local daemon for normal execution.
-  - `plan-executor execute <tasks.json> --foreground` → reads `plan.execution_mode` from the manifest; when `"remote"` the binary routes to `trigger_remote` (push plan + job-spec to the configured `remote_repo`, open execution PR; GHA runs `plan-executor execute` on a runner). The `--foreground` flag is the dispatch path used for remote submission, NOT a local-execution alternative.
+  - `plan-executor execute <tasks.json>` reads `plan.execution_mode` from the manifest. When `"local"` it submits to the local daemon. When `"remote"` it routes to `trigger_remote` (push plan + manifest to the configured `remote_repo`, open execution PR; GHA runs `plan-executor execute` on a runner). The same command handles both paths — meta.json's `execution_mode` decides.
 
 - **plan-executor / In-Session** — Invoke the `plan-executor:execute-plan` skill, passing `--compiled-manifest <tasks.json>`. That skill becomes the orchestrator and takes over from here.
 - **plan-executor / Daemon** — Run `plan-executor execute <tasks.json>` via `Bash`. The CLI submits to the daemon and returns the job id; tail with `plan-executor output -f <job-id>` if live output is wanted. Daemon must be running — if not, `plan-executor ensure` starts it.
-- **plan-executor / Remote** — Run `plan-executor execute <tasks.json> --foreground` synchronously via `Bash`. The binary reads `plan.execution_mode = "remote"` (compile-plan picked it up from meta.json) and submits to the configured execution repo.
+- **plan-executor / Remote** — Run `plan-executor execute <tasks.json>` via `Bash`. The binary reads `plan.execution_mode = "remote"` (compile-plan picked it up from meta.json) and submits to the configured execution repo.
 
   Prerequisite: `~/.plan-executor/config.json` must contain `remote_repo`. If absent, the binary exits with `remote execution requires 'remote_repo' in config — run 'plan-executor remote-setup'`. Surface that error to the user verbatim.
 
