@@ -331,6 +331,99 @@ collect_issues() {
     # Truly clean — empty output
 }
 
+# ─── Validator gate ──────────────────────────────────────────────────────────
+
+# Run a small Haiku validator that decides whether the flagged issues truly
+# need a new fix session, or whether the previous fixer already addressed
+# them — either with a code fix or with a REJECTED/DEFERRED reply on the
+# corresponding review thread.
+#
+# Echoes one of (on stdout):
+#   "all_acceptable" — no new fix session needed; treat poll as clean
+#   "work_required"  — fall through and launch a fix session (default)
+#
+# On any error (timeout, bad JSON, claude CLI failure), echoes "work_required"
+# so the monitor falls back to the existing behavior.
+run_validator() {
+    local issues="$1"
+
+    local threads_full
+    threads_full=$(gh api graphql -f query="
+        { repository(owner: \"${OWNER}\", name: \"${REPO}\") {
+            pullRequest(number: ${PR_NUMBER}) {
+                reviewThreads(first: 100) {
+                    nodes {
+                        id
+                        isResolved
+                        path
+                        line
+                        comments(first: 20) {
+                            nodes { author { login } body createdAt }
+                        }
+                    }
+                }
+            }
+        }}" --jq '.data.repository.pullRequest.reviewThreads.nodes' 2>/dev/null) \
+        || threads_full="[]"
+
+    local recent_commits
+    recent_commits=$(gh api "repos/${OWNER}/${REPO}/pulls/${PR_NUMBER}/commits" \
+        --jq '[.[] | {sha: .sha[0:8], message: .commit.message, date: .commit.author.date}] | .[-5:]' 2>/dev/null) \
+        || recent_commits="[]"
+
+    local prompt
+    prompt=$(cat <<PROMPT
+You are gating whether a PR finalizer should launch another fix session.
+
+The previous fix session may have classified some findings as REJECTED or DEFERRED and replied on the corresponding review threads instead of changing code. Decide whether the current flagged issues truly need more work, or whether everything has already been addressed (either by a code fix or by a triage reply).
+
+CURRENT FLAGGED ISSUES (what the monitor sees as actionable):
+${issues}
+
+ALL PR REVIEW THREADS (including bot replies and triage replies):
+${threads_full}
+
+RECENT COMMITS (last 5):
+${recent_commits}
+
+Rules:
+- A failing check is "all_acceptable" only if a related review thread has a recent reply from the PR author beginning with REJECTED or DEFERRED that explains why no fix is needed.
+- A failing check with no triage reply and no related fix commit is "work_required".
+- A new Bugbot or cursor[bot] comment posted after the most recent commit is "work_required".
+- Merge conflicts are always "work_required".
+- An unresolved thread whose latest comment is from the PR author with REJECTED/DEFERRED reasoning counts as acceptable.
+- If unsure, return "work_required".
+
+Output ONLY a single JSON object on stdout, no prose, no markdown fences:
+{"verdict": "work_required" | "all_acceptable", "reason": "<one sentence>"}
+PROMPT
+)
+
+    local raw
+    if ! raw=$(timeout 120 claude -p "$prompt" \
+        --output-format text \
+        --model haiku \
+        --max-turns 1 \
+        --dangerously-skip-permissions 2>/dev/null); then
+        echo "[$(date +%H:%M:%S)] Validator: claude call failed or timed out — defaulting to work_required" >&2
+        echo "work_required"
+        return
+    fi
+
+    local verdict reason
+    verdict=$(echo "$raw" | grep -oE '"verdict"[[:space:]]*:[[:space:]]*"(work_required|all_acceptable)"' | head -1 | sed -E 's/.*"(work_required|all_acceptable)".*/\1/')
+    reason=$(echo "$raw" | tr '\n' ' ' | grep -oE '"reason"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/"reason"[[:space:]]*:[[:space:]]*"([^"]*)"/\1/')
+
+    if [[ "$verdict" != "all_acceptable" && "$verdict" != "work_required" ]]; then
+        echo "[$(date +%H:%M:%S)] Validator: unparseable verdict — defaulting to work_required" >&2
+        echo "work_required"
+        return
+    fi
+
+    echo "[$(date +%H:%M:%S)] Validator verdict: ${verdict} — ${reason:-no reason}" >&2
+    echo "$verdict"
+}
+
 # ─── Fix session ──────────────────────────────────────────────────────────────
 
 format_claude_stream() {
@@ -716,7 +809,8 @@ main() {
 
         else
             # Actionable code issues — check if all threads are already-seen (no-progress loop guard)
-            consecutive_clean=0
+            # NOTE: consecutive_clean is reset only when we actually launch a fix session,
+            # so the validator gate below can accumulate clean polls across iterations.
 
             # Extract current thread IDs from issues
             local current_thread_ids
@@ -755,6 +849,37 @@ main() {
                 exit 0
             fi
 
+            # Validator gate — only runs after the first fix session has had a
+            # chance to triage. Asks Haiku whether the flagged issues genuinely
+            # need more work or whether the fixer already addressed them via
+            # REJECTED/DEFERRED replies on the review threads.
+            if [[ $fix_count -ge 1 ]]; then
+                local verdict
+                verdict=$(run_validator "$issues")
+                if [[ "$verdict" == "all_acceptable" ]]; then
+                    if [[ $LAST_PUSH_EPOCH -gt 0 ]]; then
+                        local now_v elapsed_v
+                        now_v=$(date +%s)
+                        elapsed_v=$((now_v - LAST_PUSH_EPOCH))
+                        if [[ $elapsed_v -lt $MIN_BUGBOT_WAIT_SECS ]]; then
+                            local remaining_v=$((MIN_BUGBOT_WAIT_SECS - elapsed_v))
+                            echo "[$(date +%H:%M:%S)] Validator: all_acceptable, but waiting for Bugbot (~${remaining_v}s remaining)..."
+                            sleep "$POLL_INTERVAL"
+                            continue
+                        fi
+                    fi
+                    consecutive_clean=$((consecutive_clean + 1))
+                    echo "[$(date +%H:%M:%S)] Validator clean poll ($consecutive_clean/$MAX_CONSECUTIVE_CLEAN)"
+                    if [[ $consecutive_clean -ge $MAX_CONSECUTIVE_CLEAN ]]; then
+                        echo "[$(date +%H:%M:%S)] Validator confirmed remaining issues are accepted (REJECTED/DEFERRED). Done."
+                        finalize_summary "$fix_count" "All checks passing or accepted as REJECTED/DEFERRED"
+                        exit 0
+                    fi
+                    sleep "$POLL_INTERVAL"
+                    continue
+                fi
+            fi
+
             # Enforce max fix sessions
             if [[ $fix_count -ge $MAX_FIX_SESSIONS ]]; then
                 echo ""
@@ -770,6 +895,7 @@ main() {
             fi
 
             fix_count=$((fix_count + 1))
+            consecutive_clean=0
             echo "[$(date +%H:%M:%S)] Issues found — launching fix session #${fix_count}"
             launch_fix_session "$issues" "$fix_count"
 

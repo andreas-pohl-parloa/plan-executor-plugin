@@ -194,6 +194,18 @@ The monitor handles all polling internally. Your job ends at launching it.
 3. No unresolved review threads.
 4. At least 6 minutes elapsed since the last fix push.
 
+**Validator gate.** After the first fix session, before launching any further
+fix sessions, the monitor asks a small Haiku validator whether the remaining
+flagged issues genuinely need more work, or whether the previous fix session
+already addressed them via REJECTED/DEFERRED replies on the review threads.
+If the validator returns `all_acceptable` for three polls in a row (with the
+same 6-minute Bugbot wait applied), the monitor exits success even if some
+checks remain failing. This prevents infinite fix-session loops on findings
+the agent has consciously chosen not to fix (e.g. SonarCloud Security
+Hotspots, advisory rules, repeat-offender reviewer nits). On any validator
+error or unparseable output the monitor falls back to launching a fix session
+(fail-open).
+
 ### Step 5: Report results — only after receiving task-notification
 
 When you receive a `<task-notification>` for the background job:
