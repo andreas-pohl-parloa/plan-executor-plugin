@@ -48,11 +48,52 @@ When `$5` (findings-json-path) is provided, the skill switches from initial-comp
 2. New fix-wave IDs start at `100` if no fix-waves yet exist in the manifest. Otherwise: `max(existing fix-wave IDs) + 1`.
 3. Each new fix-wave's `depends_on` MUST include the ID of the **last implementation wave** in the existing manifest. This guarantees fixes run after the original work.
 4. Each new fix-wave's `kind` MUST be `"fix"`.
-5. Each finding becomes one task (or fewer if multiple findings collapse into a single coherent fix — skill's judgment).
-6. New task IDs must not collide with existing task IDs. Suggested convention: `fix-<wave-id>-<n>` (e.g. `fix-100-1`, `fix-100-2`).
+5. **Group findings by file. Emit ONE fix-task per file**, not one per finding. All findings whose `file` matches go into a single task that the fix-agent addresses in one shot. Why: parallel fix-agents within a wave race when they target the same file (last-writer-wins erases earlier fixes). Cross-file findings stay in separate tasks (they can run in parallel safely). Findings without a `file` (e.g. `None:None` or repository-wide concerns) go into a single sentinel task addressed last in the wave. Goal: zero parallel writes to the same file in any fix wave.
+6. New task IDs must not collide with existing task IDs. Suggested convention: `fix-<wave-id>-<n>` (e.g. `fix-100-1`, `fix-100-2`); for per-file grouping a stable derivation like `fix-<wave-id>-<sanitized-filename>` is also acceptable when it stays under filesystem-name limits.
 7. Each new task entry needs `prompt_file`, `agent_type` (default `claude`), and `description`. Each new task's `prompt_file` MUST exist on disk under `<output-dir>/tasks/`.
-8. The fix-task prompt body must be self-contained: copy the finding's `description`, `category`, `severity`, `files`, and any `suggested_fix` into the prompt so the sub-agent can fix it from this file alone.
+8. **Fix-task prompt body** must follow the "Fix-task prompt template" section below. It carries every finding's structured details for the file plus the cumulative diff context plus minimal-Edit discipline.
 9. The Pass 4 emit + validate checks (JSON parses, every task_id resolves, every depends_on resolves, DAG acyclic, etc.) STILL APPLY. Re-run Pass 5 (`plan-executor validate`) after rewrite. Same 3-attempt retry budget.
+
+### Fix-task prompt template
+
+Each fix-task prompt MUST contain — verbatim where instructed — the following sections in order. Substitute the placeholders inside `{{…}}` with the per-task data; everything else is copied as-is.
+
+```markdown
+You are a focused fix-agent. Address the listed findings in `{{file_path}}` (or repo-wide when `file_path` is empty).
+
+## Findings to address ({{count}})
+
+{{
+  Repeat per finding (one block per row, in the order they appear in findings.json):
+
+  ### Finding {{n}}: {{severity}} — {{file_path}}:{{line}}
+
+  - **Category:** {{category}}
+  - **Description:** {{description}}
+  - **Reasoning:** {{reasoning}}
+  - **Suggested fix:** {{suggested_fix or "(none provided — derive from description)"}}
+}}
+
+## Cumulative diff so far
+
+The work already done on this branch is shown below. Your job is to ADD to it, not rewrite it. Preserve every line of every file that is NOT directly addressed by the findings above.
+
+```diff
+{{ unified diff: `git diff <base>...HEAD --no-color`, capped at 5000 lines / 200 KB; if truncated, append `[diff truncated: <n> more lines]` and the fix-agent falls back to targeted Read }}
+```
+
+## Editing discipline (MANDATORY)
+
+1. **Use the Edit tool with minimal `old_string` / `new_string` pairs.** Do NOT use Write. Do NOT rewrite whole functions or files. The smallest patch that fixes the listed findings is the right patch.
+2. **Touch only lines listed in the findings above.** If a finding says `WHERE: app.ts:120-121`, only modify lines 120-121 (plus surrounding context required by Edit's `old_string` matching). Do NOT refactor adjacent code, rename variables, reorder imports, fix unrelated TypeScript types, or "improve" the codebase. Other findings have their own fix-task; this is not yours.
+3. **Preserve every fix already in the cumulative diff.** Read the diff above before editing. If a prior fix-agent added a null-check / guard / contract / handler that is not directly contradicted by your findings, keep it.
+4. **No tool calls beyond what's required.** Targeted `Read` to inspect ~30 lines around the finding line is fine. `Bash` to run formatters/linters is OK. `Read`/`Grep` to enumerate the codebase is NOT.
+5. **Reuse, don't reinvent.** If the finding says "endpoint missing" and a similar endpoint exists, model the fix on it. Don't introduce a new pattern.
+
+After editing, run the project's lightweight verification (typecheck, fast unit tests for the touched module) and report pass/fail succinctly. Do NOT spawn long-running test suites — the orchestrator runs the full suite separately.
+```
+
+The skill is responsible for substituting placeholders. The diff must be the SAME diff embedded in the reviewer prompts (computed once per round) so reviewer findings and fix-agent context anchor on the same scope. Cap and fallback rules mirror the reviewer-prompt diff embedding.
 
 In APPEND mode, do NOT re-do Pass 2 (task extraction from the plan markdown). Trust the existing manifest's `tasks` and `waves` and only ADD to them.
 
