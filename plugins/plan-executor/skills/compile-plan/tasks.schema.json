@@ -51,6 +51,39 @@
           "enum": ["READY", "EXECUTING", "COMPLETED", "FAILED"],
           "default": "READY"
         },
+        "execution_mode": {
+          "description": "Where to run the plan. 'local' executes the Rust scheduler in the current process; 'remote' submits a job-spec.json to the configured remote_repo and lets a GitHub Actions runner execute it. Lives in the manifest, not in the plan markdown.",
+          "enum": ["local", "remote"],
+          "default": "local"
+        },
+        "language": {
+          "description": "Project language. Drives the default `integration_testing` test command: rust→`cargo test --workspace`, node→`npm test --silent`, python→`python -m pytest -q`, go→`go test ./...`. Plans that don't need orchestrator-level integration tests should omit `integration_testing` from `pipeline.steps` instead. Optional for back-compat: when absent, the step falls back to detecting the language from marker files (Cargo.toml, package.json, etc.) in the working directory.",
+          "type": ["string", "null"],
+          "enum": ["rust", "node", "nodejs", "typescript", "javascript", "python", "go", null]
+        },
+        "integration_test_command": {
+          "description": "Explicit override for the orchestrator-level integration-test command. When set, takes priority over `language`. Use for monorepos where the test entry point is in a sub-package, custom test runners (pnpm, bazel, etc.), or any project that can't be expressed by the language defaults.",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["program"],
+          "properties": {
+            "program": {
+              "description": "Executable to spawn. Resolved via PATH.",
+              "type": "string",
+              "minLength": 1
+            },
+            "args": {
+              "description": "Arguments passed after the program. May be empty.",
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            },
+            "workdir": {
+              "description": "Optional working directory. When omitted, the step uses ctx.workdir. Relative paths are resolved against ctx.workdir.",
+              "type": ["string", "null"]
+            }
+          }
+        },
         "flags": {
           "type": "object",
           "required": [
@@ -66,10 +99,38 @@
             "merge": { "type": "boolean" },
             "merge_admin": { "type": "boolean" },
             "skip_pr": { "type": "boolean" },
-            "skip_code_review": { "type": "boolean" },
+            "skip_code_review": {
+              "description": "Legacy flag retained for backwards compatibility with handover meta.json. New manifests should omit `code_review` from `pipeline.steps` instead — that's the authoritative way to disable a step today.",
+              "type": "boolean"
+            },
             "no_worktree": { "type": "boolean" },
             "draft_pr": { "type": "boolean" }
           }
+        },
+        "pipeline": {
+          "description": "Optional override for the daemon's plan pipeline. When omitted or null, the registry uses the default 7-step sequence (preflight → wave_execution → integration_testing → validation → pr_creation → pr_finalize → summary). Listing `code_review` between integration_testing and validation re-enables review once the dispatch→triage protocol is wired in. Order is preserved verbatim; unknown step names fail manifest validation in the Rust scheduler.",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "steps": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "preflight",
+                  "wave_execution",
+                  "integration_testing",
+                  "code_review",
+                  "validation",
+                  "pr_creation",
+                  "pr_finalize",
+                  "summary"
+                ]
+              }
+            }
+          },
+          "required": ["steps"]
         }
       }
     },

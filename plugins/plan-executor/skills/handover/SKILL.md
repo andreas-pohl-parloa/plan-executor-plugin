@@ -55,6 +55,12 @@ Required fields (snake_case):
 - `jira` (string, may be empty) — extract from `**JIRA:**` / `**Ticket:**` or `--jira=`; otherwise ask. Normalize the extracted/answered value: if it case-insensitively matches `none`, `n/a`, `null`, or `tbd`, emit `""` instead. The downstream `tasks.json` schema constrains this field to `^([A-Z][A-Z0-9]+-[0-9]+|)$` (ticket ID or empty), so any non-ticket sentinel must collapse to the empty string before being written into `meta.json`.
 - `target_repo` (string `owner/repo` or null) — extract from a `**target_repo:**` header or `--target-repo=`; otherwise ask. Null when local-only.
 - `target_branch` (string or null) — extract from a `**target_branch:**` / `**branch:**` header or `--target-branch=`; otherwise ask. Null when local-only.
+- `language` (enum: `rust` / `node` / `nodejs` / `typescript` / `javascript` / `python` / `go` or null) — extract from a `**Language:**` / `**language:**` header or `--language=`; otherwise ask. Drives the orchestrator's `integration_testing` step (`rust` → `cargo test --workspace`, `node`/`typescript`/`javascript`/`nodejs` → `npm test --silent`, `python` → `python -m pytest -q`, `go` → `go test ./...`). When the project language isn't in the enum or the test entry point lives in a sub-package (monorepo), set `language` to null and supply `integration_test_command` instead. The orchestrator falls back to detecting marker files (Cargo.toml, package.json with a `test` script, pyproject.toml, go.mod) when both fields are null, but explicit is preferred — detection is a back-compat safety net, not the contract.
+- `integration_test_command` (object or null) — optional explicit override for the orchestrator-level integration-test command. Shape:
+  ```json
+  { "program": "npm", "args": ["--prefix", "plugins/inline-discussion/server", "test", "--silent"], "workdir": null }
+  ```
+  Use for monorepos (where `npm test` at the workspace root doesn't reach the actual tests), custom runners (`pnpm`, `bazel test //...`), or any project where the language default is wrong. `program` is required, `args` defaults to `[]`, `workdir` defaults to null (step uses ctx.workdir; relative paths are resolved against it). Extract from a `**integration_test_command:**` header (JSON one-liner) or ask interactively when the user signals "this won't run from the workspace root".
 - `flags` — six booleans: `merge`, `merge_admin`, `skip_pr`, `skip_code_review`, `no_worktree`, `draft_pr`.
   - Default each flag to `false`.
   - Override from header checkbox `[x]` when present.
@@ -77,6 +83,8 @@ Write `<plan-path>.meta.json` (same directory as the plan, filename = plan filen
   "target_repo": null,
   "target_branch": null,
   "execution_mode": "local",
+  "language": "rust",
+  "integration_test_command": null,
   "flags": {
     "merge": false,
     "merge_admin": false,
