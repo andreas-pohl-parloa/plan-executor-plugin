@@ -105,6 +105,8 @@ The Claude prompt file MUST include a preamble that tells Claude to invoke every
 
 This obligation applies only to the Claude prompt file. Codex, Gemini, and the security prompt files do NOT receive the Skill-tool preamble.
 
+The Codex prompt file has its own exception — see the "Codex prompt file exception (brevity contract)" block in "Reviewer Prompt Contract" below.
+
 ## Prompt-File Naming
 
 Write exactly one prompt file per reviewer using the review naming pattern from the handoff protocol:
@@ -127,6 +129,30 @@ Build one prompt per reviewer. Each prompt must include:
 - the subprocess hygiene block below (reviewers that run commands must not hang the orchestrator)
 
 **Claude prompt file exception:** The Claude prompt file (index 1) MUST begin with a "Load project recipe skills first" preamble that lists the resolved recipe load list from "Language detection and Claude recipe skill loading" and instructs Claude to invoke each one via the Skill tool before running any review step. If the resolved list is empty, the preamble states that no project recipes were resolved and Claude proceeds without recipe context.
+
+**Codex prompt file exception (brevity contract):** The Codex prompt file (index 2) MUST end with a verbatim brevity block — Codex left to its own pacing emits 100k-250k chars per review, drowns the triage prompt's context window, and stretches the review-fix loop into multi-hour runs. Add this block as the last section of the Codex prompt, after the reporting contract and the subprocess hygiene block:
+
+> **Output discipline (MANDATORY).**
+>
+> 1. **Cap your total output at 500 lines.** If you have more findings than fit, prioritize: severity high → low; in-scope → out-of-scope. Drop the tail.
+> 2. **No prose between findings.** No headers like "## File X", no transitions like "Now examining…". Findings list only.
+> 3. **No code re-pasting.** Reference by `path:line`. The triage agent has the diff.
+> 4. **No file enumeration.** Do not output a "Reviewed files" preamble; the orchestrator already has the changed-files list.
+> 5. **One sentence per field.** Description ≤ 20 words. Reasoning ≤ 20 words. Concrete fix ≤ 20 words.
+> 6. **If clean, exit with `STATUS: OK`** as the only output line. No "no findings detected" prose.
+>
+> Format every finding as exactly four lines:
+>
+> ```
+> SEVERITY: <FIX_REQUIRED|VERIFIED_FIX|REJECTED|DEFERRED>
+> WHERE: <relative/path>:<line>
+> ISSUE: <≤20 words>
+> FIX: <≤20 words>
+> ```
+>
+> Skip extra blank lines between findings. The triage agent parses the four-line block; anything else is dropped.
+
+This block applies only to Codex. Claude (recipe-driven), Gemini (concise by default), and Security (skill-driven) keep their existing prompt shapes.
 
 **Security reviewer prompt exception:** The security reviewer prompt (index 4) MUST begin with the slash command chosen in "Security reviewer skill selection" — `/security:big-toni` when big-toni is available, otherwise `/plan-executor:lite-security-reviewer`. The first line is followed by the review scope and changed files. When big-toni is used it does NOT receive the standard recipe list or language context — `security:big-toni` determines its own methodology. When the lite fallback is used it receives the review scope, changed files, prior review context, and the reporting contract directly (it has its own built-in checklist, so no recipe list is needed). In both cases the security reviewer MUST receive the prior review context and the reporting contract so it does not re-raise already-resolved findings.
 
