@@ -124,9 +124,36 @@ Build one prompt per reviewer. Each prompt must include:
 
 - the review scope: changed files, plan context, execution summary
 - language and recipe context
+- **the inlined unified diff** (see "Diff embedding" below) so reviewers do NOT have to re-discover the diff from `git` on every iteration
 - prior review context: already-fixed findings, rejected findings, deferred findings
 - the reporting contract below
 - the subprocess hygiene block below (reviewers that run commands must not hang the orchestrator)
+- the diff-focus instruction (see "Diff embedding" below) so reviewers anchor on the inlined diff rather than spawning their own exploration tools
+
+### Diff embedding
+
+Compute the unified diff once before writing the reviewer prompt files and embed it inline in every prompt (Claude / Codex / Gemini / Security). The diff is the authoritative scope for the review — reviewers should not need `git diff`, `git log`, `git rev-parse`, or `git branch` calls just to discover what changed.
+
+**Computing the diff:**
+
+1. Resolve the base branch from caller-supplied inputs in this order: explicit `target_branch` input → `manifest.plan.target_branch` → fall back to `origin/HEAD` → finally `main`. Use the first non-empty value.
+2. Run `git diff <base>...HEAD --no-color` (three-dot — diff against the merge-base, not the tip) once and capture stdout.
+3. Cap the embedded diff at **5000 lines** OR **200 KB**, whichever is smaller. When the cap is exceeded, embed the first chunk up to the cap, append a single line `[diff truncated: <total-lines> lines / <bytes> bytes; reviewers may inspect remaining files via Read]`, and note in `notes` that the diff was truncated.
+4. When the `git diff` invocation fails (no base branch, detached HEAD, etc.), embed a single-line placeholder `[diff unavailable: <error>]` and rely on `changed_files` + reviewer tool calls instead. Do not fail the skill on diff-compute errors.
+
+**Embedding shape (verbatim in every reviewer prompt, after the changed-files list):**
+
+> ## Unified diff (review scope)
+>
+> The diff below is the authoritative scope of this review. Anchor your analysis on it. The line ranges in `WHERE:` references should map onto file:line in this diff, OR onto the post-fix file content (after applying the diff). Use the diff to find issues; reach for `Read` / `Grep` / `Bash` only when a finding's reasoning genuinely requires file context the diff does not show.
+>
+> ```diff
+> <unified diff bytes here, truncated per the rule above>
+> ```
+
+**Diff-focus instruction (verbatim in every reviewer prompt, after the diff and before the reporting contract):**
+
+> **Focus on the diff above.** It carries the authoritative review scope. Do NOT spawn `git diff`, `git log`, `git branch`, `git rev-parse`, or full-file `Read` / `cat` / `sed` / `nl` chunks just to re-discover what changed — that information is already inline. You MAY read additional files when a finding's reasoning genuinely requires context the diff does not show (e.g. a function signature referenced by changed code, the surrounding state-machine, the test that exercises the changed path). When you do, prefer targeted `Read` with explicit line ranges over enumeration.
 
 **Claude prompt file exception:** The Claude prompt file (index 1) MUST begin with a "Load project recipe skills first" preamble that lists the resolved recipe load list from "Language detection and Claude recipe skill loading" and instructs Claude to invoke each one via the Skill tool before running any review step. If the resolved list is empty, the preamble states that no project recipes were resolved and Claude proceeds without recipe context.
 
@@ -183,9 +210,10 @@ This block applies only to Codex. Claude (recipe-driven), Gemini (concise by def
 1. Validate all required inputs are present.
 2. Run the security reviewer skill-selection check (see "Security reviewer skill selection"). Record the chosen skill and, if the lite fallback was selected, add a note for the run so the completion report can surface it.
 3. Run the language detection and Claude recipe load-list resolution (see "Language detection and Claude recipe skill loading"). Record the detected language and the final recipe load list. Add notes for any missing mapped skills.
-4. Build one reviewer prompt per reviewer using the contract above. The security prompt's first line uses the slash command chosen in step 2. The Claude prompt's preamble uses the recipe load list from step 3.
-5. Write the four prompt files to `execution_root`.
-6. Return `status: waiting_for_handoffs` with the structured handoff list in `state_updates.handoffs[]` (see Completion Contract). The orchestrator (plan-executor binary) reads that array, dispatches the four reviewers via its built-in dispatcher, persists each sub-agent's stdout/exit_code to a sidecar file, and re-invokes this skill with `prior_handoff_outputs_path` pointing at that sidecar — at which point you re-enter in triage mode.
+4. **Compute the unified diff** per "Diff embedding". Capture stdout once; cache it for every reviewer prompt in this dispatch. Truncation, embedding shape, and fallback on `git diff` failure are all covered in that section.
+5. Build one reviewer prompt per reviewer using the contract above. The security prompt's first line uses the slash command chosen in step 2. The Claude prompt's preamble uses the recipe load list from step 3. **Every prompt embeds the diff from step 4 between the changed-files list and the reporting contract**, followed by the diff-focus instruction.
+6. Write the four prompt files to `execution_root`.
+7. Return `status: waiting_for_handoffs` with the structured handoff list in `state_updates.handoffs[]` (see Completion Contract). The orchestrator (plan-executor binary) reads that array, dispatches the four reviewers via its built-in dispatcher, persists each sub-agent's stdout/exit_code to a sidecar file, and re-invokes this skill with `prior_handoff_outputs_path` pointing at that sidecar — at which point you re-enter in triage mode.
 
 **Self-validation is MANDATORY before emitting the envelope.** Pipe the full envelope through `plan-executor validate --schema=helper-output:run-reviewer-team -` (exits `0` with `VALID:` on success, `1` with one or more `ERROR:` lines on stderr on schema violation).
 
