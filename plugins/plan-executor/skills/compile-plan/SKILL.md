@@ -74,11 +74,13 @@ Read `$4` (the meta-json-path passed by `plan-executor:handover`). Parse it and 
 COMPILE_ERROR: meta.json missing required field <field-name>
 ```
 
-Use `meta.json` as the authoritative source for: `goal`, `title`, `type`, `jira`, `target_repo`, `target_branch`, `execution_mode`, `flags`. Do NOT re-parse plan markdown headers — `handover` already collected this metadata. Do NOT ask for any clarification — this is a one-shot transformer.
+Use `meta.json` as the authoritative source for: `goal`, `title`, `type`, `jira`, `target_repo`, `target_branch`, `execution_mode`, `language`, `integration_test_command`, `flags`. Do NOT re-parse plan markdown headers — `handover` already collected this metadata. Do NOT ask for any clarification — this is a one-shot transformer.
 
 `title` is a short summary supplied by handover, used by the Rust orchestrator as the PR title body. Propagate it verbatim into `plan.title` in `tasks.json`. If older `meta.json` files predate this contract and omit the field, omit it from the manifest too — the orchestrator falls back to truncating `goal`.
 
 `execution_mode` is set by handover: Pass 3 writes `"local"` by default; Pass 5 rewrites it to `"remote"` if the user picks the Remote plan-executor mode. Propagate whatever value is in `meta.json` verbatim into `plan.execution_mode` in `tasks.json`. If the field is absent (older meta.json predating this contract), default to `"local"`.
+
+`language` and `integration_test_command` drive the orchestrator's `integration_testing` step. Propagate whatever values are in `meta.json` verbatim into `plan.language` and `plan.integration_test_command`. Both are optional — when absent (older meta.json predating this contract), omit them from the manifest and the orchestrator falls back to detecting the language from marker files (Cargo.toml, package.json with a `test` script, pyproject.toml, go.mod) in the working directory. Explicit is preferred; detection is the back-compat safety net.
 
 The `plan_path` value becomes the manifest's `plan.path` field. The manifest's `plan.status` is initialized to `"READY"`.
 
@@ -131,6 +133,8 @@ The `plan` object inside the manifest now carries the new fields:
     "path": "<absolute-plan-path-from-meta.json>",
     "status": "READY",
     "execution_mode": "local",
+    "language": "rust",
+    "integration_test_command": null,
     "flags": { /* six booleans */ },
     "pipeline": {
       "steps": [
