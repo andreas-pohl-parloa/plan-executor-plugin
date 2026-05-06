@@ -187,6 +187,8 @@ If any sub-tasks had `tests deferred to integration test task`, create a dedicat
   - `prior_review_notes`
   - `review_state_path` when review state is persisted outside the immediate helper result
   - `review_state` when prior helper-owned review state already exists
+  - `deviation_journal_path` (optional) — absolute path to `<execution_root>/.plan-executor/deviations.jsonl`. Omit when the file does not exist.
+  - `deviation_digest` (optional) — rendered digest from the most recent between-wave read (see Phase 3a). Empty string when the journal is empty.
 - Execution orchestration state remains orchestrator-owned. Review state remains helper-owned and separate from execution orchestration state and validation state.
 - The review helper owns Phase 5 boundaries, reviewer prompt content, review temp-file naming, frozen reviewer-set selection, review triage persistence, retry accounting, and review-fix isolation.
 - Phase 5 reviewer selection is helper-owned and fixed. The orchestrator must not choose, reduce, expand, or replace the reviewer set.
