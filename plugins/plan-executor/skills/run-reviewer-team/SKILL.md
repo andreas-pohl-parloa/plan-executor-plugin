@@ -18,6 +18,13 @@ It does NOT decide whether to fix, retry, or escalate. That logic belongs to the
 - `recipe_list` — recipe skills relevant to the changed code (used to build reviewer prompts)
 - `prior_review_context` — prior triage history for this review loop; must include already-fixed, rejected, and deferred findings so reviewers do not re-raise resolved items; pass empty object `{}` on the first run
 
+### Optional inputs (deviation journal)
+
+- `deviation_journal_path` (optional) — absolute path to `<execution_root>/.plan-executor/deviations.jsonl`.
+- `deviation_digest` (optional) — rendered digest of the journal as built by the orchestrator's between-wave read.
+
+An empty digest is normal; surface it to reviewers as "no prior deviations" and proceed.
+
 If any required input is missing, stop immediately and return `status: blocked` with the missing field in `notes`.
 
 ## Reviewer Set
@@ -113,6 +120,8 @@ Build one prompt per reviewer. Each prompt must include:
 > - `DEFERRED` — real but intentionally left unresolved (must state reason)
 >
 > Do not re-raise findings already marked fixed, rejected, or deferred in prior review context unless you have new evidence that invalidates the prior decision. Do not make code changes directly.
+
+**Use deviation entries as leads.** When `deviation_digest` is non-empty, include it verbatim in every reviewer's prompt with the heading `## Prior deviations to verify`. Tell reviewers: "Re-read the evidence cited in each deviation before accepting the claim. Do not suppress a finding solely because a deviation exists." Stale or unverifiable evidence is itself a finding.
 
 ## Execution
 
