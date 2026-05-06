@@ -32,15 +32,17 @@ If any required input is missing, stop immediately and return `status: blocked` 
 The frozen reviewer set for every invocation is exactly four reviewers:
 
 1. **Claude** — launched as a focused sub-agent via the Agent tool
-2. **Codex** — launched via `mcp__codex__codex`
-3. **Gemini** — launched via `mcp__gemini-cli__ask-gemini`
+2. **Codex** — launched via the Bash tool invoking the local `codex` CLI (`codex --dangerously-bypass-approvals-and-sandbox exec`)
+3. **Gemini** — launched via the Bash tool invoking the local `gemini` CLI (`gemini --yolo -p`)
 4. **Security** — launched as a focused sub-agent via the Agent tool. Skill selection follows the availability check in "Security reviewer skill selection" below.
 
 All four must be launched in the same parallel batch. Do not launch them sequentially.
 
 A run is not complete until all four reviewer outputs have been collected. Do not produce a triage report from a partial batch.
 
-If a reviewer tool (Claude sub-agent, `mcp__codex__codex`, or `mcp__gemini-cli__ask-gemini`) is unavailable, return `status: blocked` with the tool name and a concrete availability error in `notes`. Do not substitute a different reviewer or reduce the set below four.
+CLI invocation parameters are fixed: `codex --dangerously-bypass-approvals-and-sandbox exec` for Codex and `gemini --yolo -p` for Gemini. **JSON stream output is disabled.** Do NOT pass `--json` to `codex` and do NOT pass `-o stream-json` to `gemini`. Plain stdout output is what this skill consumes.
+
+If a reviewer tool is unavailable — Claude sub-agent dispatch fails, the `codex` binary is missing or returns a non-zero exit before producing any output, the `gemini` binary is missing or returns a non-zero exit before producing any output, or the security sub-agent dispatch fails — return `status: blocked` with the tool name and a concrete availability error in `notes`. Do not substitute a different reviewer or reduce the set below four.
 
 The security reviewer is the one exception: if `security:big-toni` is not available, the orchestrator substitutes `plan-executor:lite-security-reviewer` as described below. This substitution is NOT a block — it is the documented fallback.
 
@@ -107,7 +109,7 @@ Build one prompt per reviewer. Each prompt must include:
 
 **Claude prompt exception:** The Claude prompt MUST begin with a "Load project recipe skills first" preamble that lists the resolved recipe load list from "Language detection and Claude recipe skill loading" and instructs Claude to invoke each one via the Skill tool before running any review step. If the resolved list is empty (unknown language, or no recipes available for the language), the preamble states that no project recipes were resolved and Claude proceeds without recipe context. Claude reviews the changed files against those loaded standards.
 
-**Gemini prompt exception:** Gemini is invoked via `mcp__gemini-cli__ask-gemini`, a single-shot text-in/text-out MCP call with no filesystem access. The Gemini prompt MUST include the **full diff of every changed file** inline (run `git diff` or equivalent and embed the output). Without the inline diff, Gemini will hallucinate or review stale base content instead of the actual changes. Claude, Codex, and Security sub-agents have filesystem access and can run `git diff` themselves — do NOT embed the diff in their prompts.
+**Gemini prompt exception:** Gemini is invoked via the local `gemini` CLI as a single-shot headless run (`gemini --yolo -p`) with the prompt body delivered on stdin. Although the `gemini` CLI does have filesystem access, it does not reliably execute `git diff` exploration the way Claude / Codex sub-agents do — so the Gemini prompt MUST still include the **full diff of every changed file** inline (run `git diff` or equivalent and embed the output). Without the inline diff, Gemini will hallucinate or review stale base content instead of the actual changes. Claude, Codex, and Security sub-agents have filesystem access and can run `git diff` themselves — do NOT embed the diff in their prompts.
 
 **Security reviewer exception:** The security reviewer prompt MUST invoke the skill selected in "Security reviewer skill selection" above as its entry point (use the Skill tool with `skill: "security:big-toni"` or `skill: "plan-executor:lite-security-reviewer"`, depending on availability), providing the review scope and changed files as arguments. When `security:big-toni` is used it does NOT receive the standard recipe list or language context — `security:big-toni` determines its own methodology. When `plan-executor:lite-security-reviewer` is used it receives the review scope, changed files, prior review context, and the reporting contract directly (it has its own built-in checklist, so no recipe list is needed). In both cases the security reviewer MUST receive the prior review context and the reporting contract below so it does not re-raise already-resolved findings.
 
@@ -129,19 +131,22 @@ Build one prompt per reviewer. Each prompt must include:
 2. Run the security reviewer skill-selection check (see "Security reviewer skill selection"). Record the chosen skill and, if the fallback was selected, add a note to the run for later inclusion in the report.
 3. Run the language detection and Claude recipe load-list resolution (see "Language detection and Claude recipe skill loading"). Record the detected language and the final recipe load list. Add notes for any missing mapped skills.
 4. Build one reviewer prompt per reviewer using the contract above.
-5. Launch all four reviewers in a single parallel batch:
-   - Claude sub-agent via Agent tool (subagent_type: general-purpose)
-   - Codex via `mcp__codex__codex`
-   - Gemini via `mcp__gemini-cli__ask-gemini`
-   - Security sub-agent via Agent tool (subagent_type: general-purpose), invoking either `security:big-toni` or `plan-executor:lite-security-reviewer` based on the skill-selection check
-6. Wait for all four outputs before proceeding.
-7. Triage every finding from every reviewer into exactly one bucket:
+5. Write each reviewer's prompt to a temp file under the working directory (e.g. `.tmp-reviewer-claude.md`, `.tmp-reviewer-codex.md`, `.tmp-reviewer-gemini.md`, `.tmp-reviewer-security.md`) so the large prompt bodies (which include the inlined diff) are not passed on the command line.
+6. Launch all four reviewers in a single parallel batch (issue all four tool calls in one assistant message — do NOT chain them):
+   - **Claude** — Agent tool (subagent_type: general-purpose). Pass the Claude reviewer prompt verbatim.
+   - **Codex** — Bash tool. Concrete command: `codex --dangerously-bypass-approvals-and-sandbox exec - < <abs-path-to-codex-prompt-file>` (the `-` positional makes `codex exec` read instructions from stdin). Do NOT add `--json`.
+   - **Gemini** — Bash tool. Concrete command: `gemini --yolo -p "Begin the review now per the instructions provided on stdin." < <abs-path-to-gemini-prompt-file>` (Gemini appends the `-p` value to anything it reads from stdin, so the stdin-piped prompt body forms the bulk of the input and `-p` ends with a kickoff sentence). Do NOT add `-o stream-json`.
+   - **Security** — Agent tool (subagent_type: general-purpose), invoking either `security:big-toni` or `plan-executor:lite-security-reviewer` based on the skill-selection check.
+
+   Pick a sensible Bash `timeout` for the Codex and Gemini invocations (e.g. `timeout 600`) so a hung CLI cannot stall the run indefinitely. A non-zero exit from `codex` or `gemini` whose stdout is empty MUST be surfaced as a `status: blocked` per "Reviewer Set" above; a non-zero exit with non-empty stdout is treated as a normal review with whatever output was produced.
+7. Wait for all four outputs before proceeding.
+8. Triage every finding from every reviewer into exactly one bucket:
    - `FIX_REQUIRED`
    - `VERIFIED_FIX`
    - `REJECTED`
    - `DEFERRED`
    - Deduplicate across reviewers: if multiple reviewers raise the same issue, merge into one finding and note that N reviewers agreed.
-8. Produce the review report (see Completion Contract).
+9. Produce the review report (see Completion Contract).
 
 ## Completion Contract
 
