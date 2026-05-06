@@ -103,6 +103,48 @@ Execute sub-tasks wave by wave. Within each wave, run independent sub-tasks in p
    - Record what was produced so later waves can receive dependency context.
    - If a sub-agent failed or produced incorrect output, fix the sub-task description and rerun it before moving to the next wave.
 5. **Delete wrapper files for the completed wave** (`<execution_root>/.tmp-subtask-wave<W>-*.md`). Wrapper files for failed waves stay on disk so resume can reuse them.
+
+**Between waves — read and digest the deviation journal:**
+
+After a wave completes successfully and before the next wave's wrappers are built:
+
+1. Run the validator on the journal file:
+
+   ```bash
+   plan-executor validate --schema=deviation-journal <execution_root>/.plan-executor/deviations.jsonl
+   ```
+
+   - If the file does not exist, the digest is empty. Skip the next steps; the next wave's wrapper omits the "Prior deviation digest" block.
+   - If the validator returns non-zero (`ERROR:` lines on stderr), log the validator's `ERROR:` lines into the orchestrator's display output and proceed with an empty digest. Malformed entries are advisory; the run never aborts because of a bad journal line.
+
+2. Read each non-empty line of `<execution_root>/.plan-executor/deviations.jsonl` as JSON.
+
+3. Render the digest with this exact per-entry format (matching the binary's `digest()` output for `DigestScope::All`):
+
+   ```
+   - Task <task_id> / <category> / <severity>:
+     Claim: <claim>
+     Evidence: <path>:<lines> — <summary>      # for evidence kind = file_line
+     Evidence: <path> — <summary>              # for command_log / test_result
+     Evidence: commit <commit> — <summary>     # for commit
+     Impact: <impact>
+   ```
+
+   - `<task_id>` falls back to `repo-wide` when null/absent.
+   - Render `<category>` and `<severity>` with the binary's Debug-format casing (e.g. `ScopeChange`, `Critical`) for parity.
+   - One block per entry, separated by a single blank line.
+
+4. Cap the digest. If the rendered digest exceeds 200 lines or 32 KiB, drop entries in this priority order until it fits:
+   1. keep all `severity == critical` entries,
+   2. keep entries whose evidence `path` matches a file the upcoming wave will edit (orchestrator can derive this from the wave's task bodies),
+   3. keep most-recent entries by `created_at`.
+
+   When truncation occurs, append a final line `[deviation digest truncated]`.
+
+5. Hold the digest in memory for the duration of the next wave. It is regenerated each time this subsection runs.
+
+The same digest is also passed into Phase 5 and Phase 6 helper inputs as `deviation_digest`, with the journal file path as `deviation_journal_path`. See Phase 5 and Phase 6 for input details.
+
 6. **Proceed to the next wave** with updated dependency context in the SAME turn unless there is no next wave.
 7. When the final wave completes, continue directly to Phase 4 in the SAME turn. Do not stop after a wave-completion report. Do not wait for acknowledgment unless blocked by a missing user decision, missing permission, or a risky action that needs confirmation.
 
