@@ -280,8 +280,23 @@ After Phase 7 completes, print a structured execution summary in markdown format
 - **Phase 6: Plan Validation** — validation outcome, attempt count, and any remaining gaps or deviations.
 - **Phase 7: Cleanup and PR** — final verification status, commit hash, PR URL, and any known gaps included in the PR.
 - **Totals** — files changed, lines added/removed, interactive sub-agent dispatch count, validation attempt count, and final result.
+- **Plan deviations** — when the deviation journal contains any entry whose category is `skip`, `substitute`, `scope_change`, or any unresolved `blocker` (severity `critical`), include a `## Plan deviations` section. Format each entry as:
+
+  ```
+  - Task <task_id>: <category> / <severity> — <claim>
+    Evidence: <first evidence rendered as in the digest>
+  ```
+
+  Routine `discovery` entries are omitted. When no notable entries exist, omit the section entirely.
 
 If a phase in the summary template was skipped, keep that phase heading and include a single explicit line saying it was skipped and why.
+
+**Archive the deviation journal** after the summary is printed:
+
+- When a daemon `job_dir` is known (interactive runs typically do not have one, but the field may be present when the orchestrator was launched as a daemon follow-up), copy `<execution_root>/.plan-executor/deviations.jsonl` to `<job_dir>/deviations.jsonl`.
+- Otherwise copy it to `<plan-stem>/deviations.jsonl` so the artifacts stay co-located with the manifest.
+
+Archive failures are logged and ignored; they do not fail the run.
 
 # CRITICAL RULES
 
