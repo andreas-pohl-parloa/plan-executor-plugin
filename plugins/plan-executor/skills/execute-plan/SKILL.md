@@ -225,6 +225,8 @@ If any sub-tasks had `tests deferred to integration test task`, create a dedicat
   - `validation_state_path` when validation state is persisted outside the immediate helper result
   - `validation_state` when prior helper-owned validation state already exists
   - `post_cap_decision` when the helper is re-entered after a proceed-or-abort decision at the 5-attempt cap
+  - `deviation_journal_path` (optional) — absolute path to `<execution_root>/.plan-executor/deviations.jsonl`. Omit when the file does not exist.
+  - `deviation_digest` (optional) — rendered digest from the most recent between-wave read (see Phase 3a). Empty string when the journal is empty.
 - Execution orchestration state remains orchestrator-owned. Validation state remains helper-owned and separate from execution orchestration state and review state.
 - The validation helper owns Phase 6 boundaries, validation temp-file naming, validator prompt content, validator isolation, retry accounting, validation cap enforcement, and any required review rerun triggered after validation fixes.
 - The orchestrator MUST treat the validation helper as the only authority for Phase 6. It MUST NOT run ad-hoc validators, self-validation, or alternate validation skills while Phase 6 is active.
