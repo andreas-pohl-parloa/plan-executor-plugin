@@ -30,22 +30,69 @@ Execute sub-tasks wave by wave. Within each wave, run independent sub-tasks in p
 
 **For each sub-task in the current wave:**
 
-1. **Create a temporary sub-task file** at `.tmp-subtask-<N>.md` in the execution root. The file MUST begin with a standard agent preamble before any task content:
-   - State the agent's role: "You are a focused implementation agent. Implement exactly what this prompt describes. Nothing more, nothing less. Do NOT read or reference any other plan document, roadmap, or task files."
-   - Name each code standard recipe to load using the Skill tool before writing any code, using the exact skill name (e.g. `rust-services:production-code-recipe`). Include this even when the task body mentions the same skills.
-   - State the working directory (execution root).
-   - End the file with: "After completing the task, report: all files you created or modified, any exported types or function signatures later tasks may depend on, and the result of any verification commands you ran."
-2. **Launch an implementation sub-agent** using the Agent tool with a general-purpose agent and the following prompt contract:
-   - Read only the assigned sub-task file.
-   - Implement exactly what it describes. Nothing more, nothing less.
-   - Do NOT read or reference any full plan document, roadmap, or other task files.
-   - If the sub-task was derived from a plan task section, treat the sub-task file as the sole source of truth for that task's copied code snippets, commands, and acceptance criteria.
-   - Load the listed code standard recipes using the Skill tool before writing any code.
-   - Write tests only when the sub-task says to write them.
-   - Report files created or modified and any exports/interfaces later tasks might need.
+1. **Read the canonical sub-task prompt.** The file lives at `<plan-stem>/tasks/task-<id>.md` where `<plan-stem>` is the manifest directory (e.g. `docs/superpowers/plans/2026-05-05-apply-button/`). Compile-plan already wrote it; the orchestrator MUST NOT modify it.
+2. **Build a wrapper file** at `<execution_root>/.tmp-subtask-wave<W>-<task_id>.md` (one per task per wave; the wave id avoids name collisions on resume). The wrapper file content, in this order:
+
+   a. **Sub-Agent Instructions banner.** Verbatim:
+
+      ```
+      You are a focused implementation agent. Implement exactly what this prompt describes. Nothing more, nothing less. Do NOT read or reference any other plan document, roadmap, or task files.
+
+      Recipes to load via the Skill tool before writing any code: <recipe-list>.
+
+      Working directory: <execution_root>.
+
+      After completing the task, report: all files you created or modified, any exported types or function signatures later tasks may depend on, and the result of any verification commands you ran.
+
+      ---
+      ```
+
+   b. **Deviation journal protocol block.** Verbatim, including the marker that ensures parity with the binary's `handoff::DEVIATION_MARKER`:
+
+      ```
+      > **Deviation journal (plan-executor enforced — do not remove):**
+      >
+      > If you discover a mismatch between this task and the codebase, or you intentionally skip/substitute/scope-change part of the task, write a validated journal entry.
+      >
+      > Constants for this task:
+      > - journal_path: `<execution_root>/.plan-executor/deviations.jsonl`
+      > - job_id: `<synthesized-job-id>`
+      > - phase: `wave_execution`
+      > - wave_id: `<W>`
+      > - task_id: `<task_id>`
+      > - agent_index: `<1-based-index-within-wave>`
+      >
+      > Protocol:
+      > 1. Create one JSON object matching `plan-executor validate --schema=deviation-journal-entry`.
+      > 2. Validate it with `plan-executor validate --schema=deviation-journal-entry -`.
+      > 3. Append it as one line to `journal_path` only after validation passes.
+      > 4. Do not ask the user. Do not use the journal to justify incomplete work. If a required task cannot be completed, fail explicitly.
+
+      ---
+      ```
+
+   c. **Prior deviation digest** (only when the previous wave produced entries; see Phase 3a for how the digest is built). Verbatim header followed by the digest body, then a separator:
+
+      ```
+      > Prior deviation digest for context:
+      > <digest body — one line per "> " bullet from the digest renderer in Phase 3a>
+
+      --- task body below ---
+      ```
+
+   d. **Body.** Read `<plan-stem>/tasks/task-<id>.md` and copy its contents verbatim. Do NOT edit, summarize, or strip any code blocks.
+
+   When the wrapper file already exists from a prior attempt (resume mid-wave), check whether the deviation block marker `Deviation journal (plan-executor enforced` is already present near the top. If present, reuse the wrapper as-is. If absent, regenerate from scratch.
+3. **Synthesize the job_id.** Compute it once per orchestrator invocation as `interactive-<short-sha>-<UTC-yyyymmdd-hhmmss>`, where `<short-sha>` is the first 7 chars of `sha1(manifest.plan.path)`. Reuse the same value for every wrapper preamble in this run.
+4. **Launch the sub-agent.** Use the Agent tool with a general-purpose agent. The prompt tells the sub-agent:
+   - Read only the wrapper file.
+   - Treat the wrapper file as the sole source of truth.
+   - Load the listed recipes via the Skill tool before writing code.
+   - Write tests only when the wrapper says to write them.
+   - Report files created/modified and any exports later tasks may depend on.
    - Work in the execution root.
-   - Explicitly set the Agent `model` parameter to match the orchestrator's current model on every Agent call.
-3. **Run independent sub-tasks in parallel when safe.** Tasks with shared files or shared dependencies MUST run sequentially.
+   - Set the Agent `model` parameter to match the orchestrator's current model on every Agent call.
+5. **Run independent sub-tasks in parallel when safe.** Tasks with shared files or shared dependencies MUST run sequentially.
 
 **After all sub-agents in the current wave complete:**
 
@@ -55,7 +102,7 @@ Execute sub-tasks wave by wave. Within each wave, run independent sub-tasks in p
    - Run existing linter, type-check, build, and test commands to catch regressions early.
    - Record what was produced so later waves can receive dependency context.
    - If a sub-agent failed or produced incorrect output, fix the sub-task description and rerun it before moving to the next wave.
-5. **Delete all temporary sub-task files** for the completed wave.
+5. **Delete wrapper files for the completed wave** (`<execution_root>/.tmp-subtask-wave<W>-*.md`). Wrapper files for failed waves stay on disk so resume can reuse them.
 6. **Proceed to the next wave** with updated dependency context in the SAME turn unless there is no next wave.
 7. When the final wave completes, continue directly to Phase 4 in the SAME turn. Do not stop after a wave-completion report. Do not wait for acknowledgment unless blocked by a missing user decision, missing permission, or a risky action that needs confirmation.
 
