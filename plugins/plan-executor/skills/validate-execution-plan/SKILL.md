@@ -23,6 +23,13 @@ You are the INTERACTIVE VALIDATION HELPER. You run in the same agent as the orch
 - `prior_helper_outcomes` — prior helper outcomes needed to continue the same validation loop deterministically
 - `post_cap_decision` — explicit operator decision after the 5-attempt cap, when the helper is re-entered after a proceed-or-abort decision
 
+### Optional inputs (deviation journal)
+
+- `deviation_journal_path` (optional) — absolute path to `<execution_root>/.plan-executor/deviations.jsonl`. May be absent when the orchestrator's run produced no journal yet.
+- `deviation_digest` (optional) — rendered digest of the journal as built by the orchestrator's between-wave read. May be empty.
+
+An empty digest is normal; treat it as "no deviations to consider" and proceed.
+
 ## Same-agent boundary
 
 - This helper runs in the same agent as the interactive execute-plan orchestrator.
@@ -76,6 +83,8 @@ DEVIATIONS:
 NOTES:
 - <concise context needed for the next attempt>
 ```
+
+**Deviation journal entries are advisory.** PASS only if the plan requirement is implemented in code or the deviation's evidence still verifies. If the evidence is stale, missing, or free-text only, treat the requirement as unmet. Surface stale-evidence findings as gaps with `missing_evidence` describing the discrepancy.
 
 Validation report rules:
 

@@ -25,6 +25,13 @@ The orchestrator must pass, at minimum:
 
 If any required input is missing, stop and return `status: blocked` with the missing field in `notes`.
 
+### Optional inputs (deviation journal)
+
+- `deviation_journal_path` (optional) — absolute path to `<execution_root>/.plan-executor/deviations.jsonl`. May be absent when the orchestrator's run produced no journal yet.
+- `deviation_digest` (optional) — rendered digest of the journal as built by the orchestrator's between-wave read. May be empty.
+
+When the helper passes these into the reviewer team, it must forward them as the same field names so the reviewer prompts can include them. An empty digest is normal; treat it as "no prior deviations" and proceed.
+
 ## State ownership and isolation
 
 - This helper runs in the same agent as the interactive execute-plan orchestrator.
@@ -37,6 +44,7 @@ If any required input is missing, stop and return `status: blocked` with the mis
 
 1. Delegate each reviewer-team run to `plan-executor:run-reviewer-team`.
    - Pass `plan_context`, `execution_outputs`, `changed_files`, `language`, `recipe_list`, and the accumulated `prior_review_context` for each invocation.
+   - When `deviation_journal_path` and/or `deviation_digest` are provided by the orchestrator, forward them verbatim to `plan-executor:run-reviewer-team` under the same field names.
    - Do not freeze reviewer sets, build reviewer prompts, or launch reviewers directly. That is owned by `plan-executor:run-reviewer-team`.
    - If `plan-executor:run-reviewer-team` returns `status: blocked`, propagate `status: blocked` from this helper with the blocker detail.
    - A review attempt is complete only when `plan-executor:run-reviewer-team` returns `status: complete`.
